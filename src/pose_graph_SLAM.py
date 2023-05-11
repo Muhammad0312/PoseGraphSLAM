@@ -16,14 +16,36 @@ from geometry_msgs.msg import Point
 from sensor_msgs.msg import LaserScan
 
 from utils_lib.helper_functions import *
-  
+from utils_lib.add_new_pose import AddNewPose  
+# from utils_lib.overlapping_scan import OverlappingScans
+# from utils_lib.register_ICP import icp
+
+def pose_inversion(xy_state):
+    x,y,theta = xy_state
+    # theta = -theta
+    new_x = -x*cos(theta) - y*sin(theta)
+    new_y = x*sin(theta) - y*cos(theta)
+    new_theta = -theta
+    return [new_x,new_y,new_theta] 
+
+def compounding(a_x_b, b_x_c):
+    x_b,y_b,theta_b = a_x_b
+    x_c,y_c,theta_c = b_x_c
+
+    new_x = x_b + x_c*cos(theta_b) - y_c*sin(theta_b)
+    new_y = y_b + x_c*sin(theta_b) + y_c*cos(theta_b)
+    new_theta = theta_b + theta_c
+    
+    return [new_x,new_y,new_theta] 
+
 class PoseGraphSLAM:
     def __init__(self) -> None:
 
         # robot constants
         self.wheel_radius = 0.035
         self.wheel_base_distance = 0.230
-        
+        self.update_running = False
+
         # Pose initialization
         self.xk = np.zeros(3)
 
@@ -46,10 +68,10 @@ class PoseGraphSLAM:
         self.left_wheel_received = False
 
         # scan related variables
-        self.dist_th = 0.2   # take scan if displacement is > 0.2m
-        self.ang_th = 0.174533 # take scan if angle change is > 10 degrees
+        self.dist_th = 0.5   # take scan if displacement is > 0.2m, 0.5
+        self.ang_th = 0.785 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees) 
 
-        self.scans = []
+        self.scans = []  # = [s1, s2, s3, s4]
 
         self.last_time = rospy.Time.now()
 
@@ -74,6 +96,10 @@ class PoseGraphSLAM:
         # odom publisher
         self.odom_pub = rospy.Publisher("kobuki/odom", Odometry, queue_size=10)
         
+        # Viewpoints visualizer
+        self.viewpoints_pub = rospy.Publisher("/slam/vis_viewpoints",MarkerArray,queue_size=1)
+
+        self.h_lines_pub = rospy.Publisher("/slam/vis_h_lines",MarkerArray,queue_size=1)
 
         self.tf_br = TransformBroadcaster()
     
@@ -84,12 +110,12 @@ class PoseGraphSLAM:
 
         if msg.name[0] == self.wheel_name_left:
             self.left_wheel_velocity = msg.velocity[0]
-            print('got left wheel')
+            # print('got left wheel')
             # self.left_wheel_received = True
                 # return
         elif msg.name[0] == self.wheel_name_right:
             self.right_wheel_velocity = msg.velocity[0]
-            print('got right wheel')
+            # print('got right wheel')
             # self.right_wheel_received = True
 
         # if (self.left_wheel_received and self.right_wheel_received):
@@ -128,12 +154,15 @@ class PoseGraphSLAM:
      #########################-_________________________________________________________________________________________________-##########################################
 
     def predict (self,msg):
-        # print('in predict')
+        print('in predict')
+
+        # if update is running don't run prediction
+        # if not self.update_running:
         dt = self.State_model(msg) 
 
         Ak = np.array([[1, 0, -self.v * dt * np.sin(self.xk[-1])],
-                       [0, 1, self.v * dt * np.cos(self.xk[-1])],
-                       [0, 0, 1]]) 
+                    [0, 1, self.v * dt * np.cos(self.xk[-1])],
+                    [0, 0, 1]]) 
 
         Wk = np.array([[dt*self.wheel_radius*np.cos(self.xk[-1])/2,   dt*self.wheel_radius*np.cos(self.xk[-1])/2],
                         [dt*self.wheel_radius*np.sin(self.xk[-1])/2,  dt*self.wheel_radius*np.sin(self.xk[-1])/2],
@@ -143,7 +172,7 @@ class PoseGraphSLAM:
 
         F1k, F2k = self.get_F1k_F2k(Ak, Wk)
 
-        self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
+        # self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
 
         # print(self.Pk)
 
@@ -151,7 +180,12 @@ class PoseGraphSLAM:
 
     #______________________    Update  ________________________________________________________________
     
+    def get_h(self, prev_pose, new_pose):
+        return compounding(pose_inversion(prev_pose), new_pose)
+
     def get_scan(self, scan_msg):
+        
+        # self.update_running = True
 
         ranges = np.array(scan_msg.ranges)
         angle_min = scan_msg.angle_min
@@ -172,48 +206,155 @@ class PoseGraphSLAM:
         np.savetxt('pose3.txt', self.xk[-3:])
         np.savetxt('scan3.txt', curr_scan)
 
+        print('curr scan: ', curr_scan)
         # print('scan len: ', curr_scan.shape[0])
-        print('xk: ', self.xk)
+        # print('xk: ', self.xk)
         # print('curr_scan: ', curr_scan[-5:])
 
-        if len(self.xk) == 3 : #whatever condition
+        # if scan available, then proceed.
+        # if curr_scan != []:
+        if len(self.xk) == 3 : #add initial scan
             # add new scan
+            # print('adding first scan')
             self.scans.append(curr_scan)
-            self.add_new_pose()
+            self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
+            # self.add_new_pose()
         else:
             last_scan_pose = self.xk[-6:-3]  # 2nd last state in state vector
             curr_pose = self.xk[-3:]         # last state in state vector
             
             dist_since_last_scan = euclidean_distance(last_scan_pose[:2], curr_pose[:2]) 
-            rot_since_last_scan = abs(last_scan_pose[:2] - curr_pose[:2])
+            rot_since_last_scan = abs(last_scan_pose[2] - curr_pose[2])
 
-            print('dist_since_last_scan: ', dist_since_last_scan)
-            print('rot_since_last_scan: ', rot_since_last_scan)
+            # print('dist_since_last_scan: ', dist_since_last_scan)
+            # print('rot_since_last_scan: ', rot_since_last_scan)
 
-            if dist_since_last_scan > self.dist_th or rot_since_last_scan > self.ang_th:
+            # only add pose/scan if we have move significantly
+            if dist_since_last_scan > self.dist_th: #or rot_since_last_scan > self.ang_th:
                 # add new scan
                 self.scans.append(curr_scan)
-                self.add_new_pose()
-    
+                self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
+                # self.add_new_pose()
+        
+        # self.update_running = False
+        self.publish_viewpoints()
+        self.check_obs_model()
 
-    def add_new_pose(self):
-        # print('In add new pose')
-        pass
+    # def add_new_pose(self):
+    #     # print('In add new pose')
+    #     new_x = np.zeros(len(self.xk)+3)
+    #     # print(self.xk.shape)
+    #     # print(new_x.shape)
+    #     for i in range(len(self.xk)):
+    #         new_x[i] = self.xk[i]
+    #     new_x[-1] = self.xk[-1]
+    #     new_x[-2] = self.xk[-2]
+    #     new_x[-3] = self.xk[-3]
+
+    #     self.xk = new_x
+        
+    #     self.update_running = False
 
     ##################      Publishing   ##############################
 
     #########################-_________________________________________________________________________________________________-##########################################
     
+    def check_obs_model(self):
+        ref_list = []
+        h_list = []
+
+        for i in range(0,len(self.xk)-3,3):
+            ref_pose = self.xk[i:i+3]
+            next_pose = self.xk[i+3:i+6]
+            # x, y, theta
+            h = self.get_h(ref_pose, next_pose)
+            # print('------------------')
+            # print('ref pose: ', ref_pose)
+            # print('next_pose: ', next_pose)
+            # print('h: ', h)
+
+            ref_list.append(ref_pose)
+            h_list.append(h)
+        
+        self.publish_h_lines(ref_list, h_list)
+
+    def publish_h_lines(self, ref_list, h_list):
+
+        viewpoints_list = []
+
+        # Loop through the data and create markers
+        for i in range(len(ref_list)-1):
+            # Create a marker for each line segment
+            myMarker = Marker()
+            myMarker.header.frame_id = "world"
+            myMarker.type = myMarker.LINE_LIST
+            myMarker.action = myMarker.ADD
+            myMarker.id = i 
+
+            # Set the marker properties
+            myMarker.pose.orientation.w = 1.0
+            myMarker.scale.x = 0.05
+
+            # Set the line segment endpoints
+            startPoint = Point()
+            endPoint = Point()
+
+            startPoint.x = ref_list[i][0]
+            startPoint.y = ref_list[i][1]
+            startPoint.z = 0.0
+
+            endPoint.x = ref_list[i][0] + h_list[i][0]
+            endPoint.y = ref_list[i][1] + h_list[i][1]
+            endPoint.z = 0.0
+
+            myMarker.points.append(startPoint)
+            myMarker.points.append(endPoint)
+
+            myMarker.color = ColorRGBA(1, 1, 0, 1)  # Green color
+
+            viewpoints_list.append(myMarker)
+
+        self.h_lines_pub.publish(viewpoints_list)
+
+    def publish_viewpoints(self):
+
+        marker_frontier_lines = MarkerArray()
+        marker_frontier_lines.markers = []
+
+        viewpoints_list = []
+
+        for i in range(0,len(self.xk),3):
+            myMarker = Marker()
+            myMarker.header.frame_id = "world"
+            myMarker.type = myMarker.SPHERE # sphere
+            myMarker.action = myMarker.ADD
+            myMarker.id = i
+
+            myMarker.pose.orientation.x = 0.0
+            myMarker.pose.orientation.y = 0.0
+            myMarker.pose.orientation.z = 0.0
+            myMarker.pose.orientation.w = 1.0
+
+            myPoint = Point()
+            myPoint.x = self.xk[i]
+            myPoint.y = self.xk[i+1]
+
+            myMarker.pose.position = myPoint
+            
+            myMarker.color=ColorRGBA(0.224, 1, 0, 1)
+                        # self.myMarker.color=ColorRGBA(colors[i*col_jump,0], colors[val*col_jump,1], colors[val*col_jump,2], 0.5)
+
+            myMarker.scale.x = 0.1
+            myMarker.scale.y = 0.1
+            myMarker.scale.z = 0.05
+            # self.myMarker.lifetime = rospy.Duration(0)
+            viewpoints_list.append(myMarker)
+
+        self.viewpoints_pub.publish(viewpoints_list)
+
     def publish_odom_predict(self,msg):
         current_time = rospy.Time.from_sec(msg.header.stamp.secs + msg.header.stamp.nsecs * 1e-9)
         q = quaternion_from_euler(0, 0, self.xk[-1])
-        # print (self.Pk )
-        # N = np.zeros((6,6))
-        # for i in range (2):
-        #     for j in range (2):
-        #         N[i,j] = self.Pk[i,j]
-
-        # N[5] = [0,0,0,self.Pk[2,0],self.Pk[2,1],self.Pk[2,2]] 
         
         covar = [self.Pk[0,0], self.Pk[0,1], 0.0, 0.0, 0.0, self.Pk[0,2],
                 self.Pk[1,0], self.Pk[1,1], 0.0, 0.0, 0.0, self.Pk[1,2],  
@@ -234,8 +375,6 @@ class PoseGraphSLAM:
         odom.pose.pose.orientation.y = q[1]
         odom.pose.pose.orientation.z = q[2]
         odom.pose.pose.orientation.w = q[3]
-
-        
 
         odom.twist.twist.linear.x = self.v
         odom.twist.twist.angular.z = self.w
