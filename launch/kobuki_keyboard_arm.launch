@@ -1,0 +1,11 @@
+<launch>
+    <!-- Node 1 -->
+    <node name="teleop_arm_key" pkg="pose-graph-slam" type="FK_arm.py" output="screen">
+        <!-- Add any node-specific arguments or parameters here -->
+    </node>
+
+
+    <!-- Topic remapping -->
+    <!-- <remap from="/turtlebot/swiftpro/joint_velocity_controller/command" to="hardware_topic"/>  -->
+
+</launch>
