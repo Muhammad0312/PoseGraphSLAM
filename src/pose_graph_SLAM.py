@@ -16,7 +16,10 @@ from geometry_msgs.msg import Point
 from sensor_msgs.msg import LaserScan
 
 from utils_lib.helper_functions import *
-  
+from utils_lib.add_new_pose import AddNewPose  
+# from utils_lib.overlapping_scan import OverlappingScans
+# from utils_lib.register_ICP import icp
+
 def pose_inversion(xy_state):
     x,y,theta = xy_state
     # theta = -theta
@@ -151,29 +154,29 @@ class PoseGraphSLAM:
      #########################-_________________________________________________________________________________________________-##########################################
 
     def predict (self,msg):
-        # print('in predict')
+        print('in predict')
 
         # if update is running don't run prediction
-        if self.update_running:
-            dt = self.State_model(msg) 
+        # if not self.update_running:
+        dt = self.State_model(msg) 
 
-            Ak = np.array([[1, 0, -self.v * dt * np.sin(self.xk[-1])],
-                        [0, 1, self.v * dt * np.cos(self.xk[-1])],
-                        [0, 0, 1]]) 
+        Ak = np.array([[1, 0, -self.v * dt * np.sin(self.xk[-1])],
+                    [0, 1, self.v * dt * np.cos(self.xk[-1])],
+                    [0, 0, 1]]) 
 
-            Wk = np.array([[dt*self.wheel_radius*np.cos(self.xk[-1])/2,   dt*self.wheel_radius*np.cos(self.xk[-1])/2],
-                            [dt*self.wheel_radius*np.sin(self.xk[-1])/2,  dt*self.wheel_radius*np.sin(self.xk[-1])/2],
-                            [dt*self.wheel_radius/self.wheel_base_distance,    -dt*self.wheel_radius/self.wheel_base_distance]])
-                
-            # print(self.xk[-1])
+        Wk = np.array([[dt*self.wheel_radius*np.cos(self.xk[-1])/2,   dt*self.wheel_radius*np.cos(self.xk[-1])/2],
+                        [dt*self.wheel_radius*np.sin(self.xk[-1])/2,  dt*self.wheel_radius*np.sin(self.xk[-1])/2],
+                        [dt*self.wheel_radius/self.wheel_base_distance,    -dt*self.wheel_radius/self.wheel_base_distance]])
+            
+        # print(self.xk[-1])
 
-            F1k, F2k = self.get_F1k_F2k(Ak, Wk)
+        F1k, F2k = self.get_F1k_F2k(Ak, Wk)
 
-            # self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
+        # self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
 
-            # print(self.Pk)
+        # print(self.Pk)
 
-            self.publish_odom_predict(msg)
+        self.publish_odom_predict(msg)
 
     #______________________    Update  ________________________________________________________________
     
@@ -182,7 +185,7 @@ class PoseGraphSLAM:
 
     def get_scan(self, scan_msg):
         
-        self.update_running = True
+        # self.update_running = True
 
         ranges = np.array(scan_msg.ranges)
         angle_min = scan_msg.angle_min
@@ -203,15 +206,19 @@ class PoseGraphSLAM:
         np.savetxt('pose3.txt', self.xk[-3:])
         np.savetxt('scan3.txt', curr_scan)
 
+        print('curr scan: ', curr_scan)
         # print('scan len: ', curr_scan.shape[0])
         # print('xk: ', self.xk)
         # print('curr_scan: ', curr_scan[-5:])
 
-        if len(self.xk) == 3 : #add initial scal
+        # if scan available, then proceed.
+        # if curr_scan != []:
+        if len(self.xk) == 3 : #add initial scan
             # add new scan
             # print('adding first scan')
             self.scans.append(curr_scan)
-            self.add_new_pose()
+            self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
+            # self.add_new_pose()
         else:
             last_scan_pose = self.xk[-6:-3]  # 2nd last state in state vector
             curr_pose = self.xk[-3:]         # last state in state vector
@@ -222,28 +229,31 @@ class PoseGraphSLAM:
             # print('dist_since_last_scan: ', dist_since_last_scan)
             # print('rot_since_last_scan: ', rot_since_last_scan)
 
+            # only add pose/scan if we have move significantly
             if dist_since_last_scan > self.dist_th: #or rot_since_last_scan > self.ang_th:
                 # add new scan
                 self.scans.append(curr_scan)
-                self.add_new_pose()
+                self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
+                # self.add_new_pose()
         
+        # self.update_running = False
         self.publish_viewpoints()
         self.check_obs_model()
 
-    def add_new_pose(self):
-        # print('In add new pose')
-        new_x = np.zeros(len(self.xk)+3)
-        # print(self.xk.shape)
-        # print(new_x.shape)
-        for i in range(len(self.xk)):
-            new_x[i] = self.xk[i]
-        new_x[-1] = self.xk[-1]
-        new_x[-2] = self.xk[-2]
-        new_x[-3] = self.xk[-3]
+    # def add_new_pose(self):
+    #     # print('In add new pose')
+    #     new_x = np.zeros(len(self.xk)+3)
+    #     # print(self.xk.shape)
+    #     # print(new_x.shape)
+    #     for i in range(len(self.xk)):
+    #         new_x[i] = self.xk[i]
+    #     new_x[-1] = self.xk[-1]
+    #     new_x[-2] = self.xk[-2]
+    #     new_x[-3] = self.xk[-3]
 
-        self.xk = new_x
+    #     self.xk = new_x
         
-        self.update_running = False
+    #     self.update_running = False
 
     ##################      Publishing   ##############################
 
@@ -258,10 +268,10 @@ class PoseGraphSLAM:
             next_pose = self.xk[i+3:i+6]
             # x, y, theta
             h = self.get_h(ref_pose, next_pose)
-            print('------------------')
-            print('ref pose: ', ref_pose)
-            print('next_pose: ', next_pose)
-            print('h: ', h)
+            # print('------------------')
+            # print('ref pose: ', ref_pose)
+            # print('next_pose: ', next_pose)
+            # print('h: ', h)
 
             ref_list.append(ref_pose)
             h_list.append(h)
