@@ -6,7 +6,8 @@ import data_trial_scans
 
 def get_transformation_matrix():
     pose1 = [8.952061389220677316e-07, -6.361812210453066930e-11, -1.044700073057142620e-05]
-    pose2 = [2.883825026077073139e-01, -1.402247462826852198e-01, -9.072827003143387747e-01]
+    # pose2 = [2.883825026077073139e-01, -1.402247462826852198e-01, -9.072827003143387747e-01] #scan3
+    pose2= [5.882918886136125416e-03, -7.026800482131475081e-03 ,-1.641024133333284230e+00] #scan2
     x1, y1, theta1 = pose1
     x2, y2, theta2 = pose2
     
@@ -72,7 +73,7 @@ def icp(A, B, init_transform=None, max_iterations=20, tolerance=1e-3):
 
         T_optimal = ls_minimization(X, Y, W)
         dummy = T_optimal@dummy
-        print ("dummy",)
+        # print ("dummy",)
         # Update transformation
         transform = T_optimal
         A_transformed = transform @ A_transformed
@@ -99,7 +100,7 @@ with open('data_trial_scans/scan1.txt', 'r') as f:
 A = np.array(A)
 
 B = []
-with open('data_trial_scans/scan3.txt', 'r') as f:
+with open('data_trial_scans/scan2.txt', 'r') as f:
     for line in f:
         row = line.strip().split()
         x = float(row[0])
@@ -131,10 +132,10 @@ plt.show()
 plt.figure(figsize=(10, 10))
 
 # # Plot scatter plots
-plt.scatter(A[0, :], A[1, :], label='A')
-plt.scatter(B[0, :], B[1, :], label='B')
-plt.scatter(A_transformed[0, :], A_transformed[1, :], label='Transformed A')
-plt.scatter(First_A_transformed[0, :], First_A_transformed[1, :], label='First_A_transformed')
+plt.scatter(A[0, :], A[1, :], label='A_first pose')
+plt.scatter(B[0, :], B[1, :], label='A_after movement')
+plt.scatter(A_transformed[0, :], A_transformed[1, :], label='A_ICP transformation')
+plt.scatter(First_A_transformed[0, :], First_A_transformed[1, :], label='A_initial transformation')
 
 plt.legend()
 plt.show()
