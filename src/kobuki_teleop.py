@@ -5,6 +5,8 @@ from std_msgs.msg import Float64
 from std_msgs.msg import Int32MultiArray
 from std_msgs.msg import Float64MultiArray
 import sys, select, os
+import numpy as np
+
 if os.name == 'nt':
   import msvcrt, time
 else:
@@ -64,6 +66,8 @@ class TeleopKey:
         
         lin_vel = 0.0
         ang_vel = 0.0
+        max_lin_vel = 0.2
+        max_ang_vel = 0.35
 
         try:
             print(msg)
@@ -71,7 +75,8 @@ class TeleopKey:
                 key = getKey()
 
                 if key == 'w' :
-                    lin_vel += 0.1
+                    lin_vel += 0.025
+                    lin_vel = np.clip(lin_vel,-max_lin_vel,max_lin_vel)
                     print('------------------------')
                     print('lin_vel',round(lin_vel,2))
                     print('ang_vel',round(ang_vel,2))
@@ -80,7 +85,8 @@ class TeleopKey:
                     vel_pub.publish(F)
                     
                 elif key == 'x' :
-                    lin_vel -= 0.1
+                    lin_vel -= 0.025
+                    lin_vel = np.clip(lin_vel,-max_lin_vel,max_lin_vel)
                     print('------------------------')
                     print('lin_vel',round(lin_vel,2))
                     print('ang_vel',round(ang_vel,2))
@@ -89,7 +95,8 @@ class TeleopKey:
                     vel_pub.publish(F)
 
                 elif key == 'a' :
-                    ang_vel += 0.1
+                    ang_vel += 0.05
+                    ang_vel = np.clip(ang_vel,-max_ang_vel,max_ang_vel)
                     print('------------------------')
                     print('lin_vel',round(lin_vel,2))
                     print('ang_vel',round(ang_vel,2))
@@ -98,7 +105,8 @@ class TeleopKey:
                     vel_pub.publish(F)
 
                 elif key == 'd' :
-                    ang_vel -= 0.1
+                    ang_vel -= 0.05
+                    ang_vel = np.clip(ang_vel,-max_ang_vel,max_ang_vel)
                     print('------------------------')
                     print('lin_vel',round(lin_vel,2))
                     print('ang_vel',round(ang_vel,2))
