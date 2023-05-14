@@ -18,7 +18,7 @@ from utils_lib.helper_functions import *
 from utils_lib.add_new_pose import AddNewPose  
 from utils_lib.get_scan import get_scan  
 from utils_lib.overlapping_scan import OverlappingScans
-# from utils_lib.register_ICP import icp
+from utils_lib.register_ICP import icp
 
 class PoseGraphSLAM:
     def __init__(self) -> None:
@@ -156,11 +156,12 @@ class PoseGraphSLAM:
     def scan_available(self,scan_msg):
 
         scan = get_scan(scan_msg)
+        # print('curr scan: ', scan)
 
         if scan != []:
             if len(self.xk) == 3 : #add initial scan
                 self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
-                self.map.append(scan)
+                self.map.append(np.array(scan))
             else:
 
                 is_add_scan = check_distance_bw_scans(self.xk, self.dist_th, self.ang_th)
@@ -169,13 +170,29 @@ class PoseGraphSLAM:
                 if is_add_scan: 
                     # add new scan and pose
                     self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
-                    self.map.append(scan)
+                    self.map.append(np.array(scan))
 
                     # Overlapping Scans
                     Ho = OverlappingScans(self.xk, self.map)
                     print('Num scans: ', len(self.map))
                     print('Overlap Ho: ', Ho)
 
+                    # for each matched pair
+                    for j in Ho:
+                        print('------------- mathcing started ---------')
+                        print('scan index: ', j)
+                        match_scan = self.map[j]
+                        
+                        curr_viewpoint = self.xk[-3:]
+                        matched_viewpoint = self.xk[j*3:3*j+3]
+
+                        # Obervation Model
+                        guess_displacement = get_h(matched_viewpoint, curr_viewpoint)
+                        # P = J bla bla
+                        print('guess_displacement: ', guess_displacement)
+
+                        zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint)
+                        print('icp displacement: ', zr)
 
         # self.update_running = False
         self.publish_viewpoints()

@@ -33,6 +33,10 @@ def ToWorldFrame(state_vector, map):
 
 
 def OverlappingScans(state_vector, map):
+
+    # convert from [x,y,z] to [[x,y,z]]
+    state_vector = [[state_vector[i], state_vector[i+1], state_vector[i+2]] for i in range(0, len(state_vector), 3)]
+
     compounded_scans = ToWorldFrame(state_vector, map)
     H = []
     overlap_threshold = 50
@@ -59,31 +63,16 @@ def OverlappingScans(state_vector, map):
         # Extract the overlapping points from each point cloud
         overlapping_points_1 = point_cloud_1[overlap_indices_2]
         overlapping_points_2 = point_cloud_2[overlap_indices_1]
-
         if (len(overlapping_points_1) / len(point_cloud_1))*100 >= overlap_threshold:
             H.append(i)
 
-
-        # # Print the overlapping percentage
-        # print("Overlapping points in cloud 1:", (len(overlapping_points_1)/len(point_cloud_1))*100, '%')
-        # print("Overlapping points in cloud 2:", (len(overlapping_points_2)/len(point_cloud_2))*100, '%')
-
-        '''Uncomment to visulaize things'''
-        # fig = plt.figure(figsize=(10, 5))
-        # ax1 = fig.add_subplot(projection='3d')
-        # ax1.scatter(point_cloud_1[:,0], point_cloud_1[:,1], c='blue')
-        # ax1.scatter(point_cloud_2[:,0], point_cloud_2[:,1], c='red')
-        # ax1.set_xlabel('X')
-        # ax1.set_ylabel('Y')
-        # ax1.set_zlabel('Z')
-        # ax1.set_title('Original Point Cloud')
-        # plt.show()
     return H
 
 def OverlappingScansConvex(state_vector, map):
-    
-    compounded_scans = ToWorldFrame(state_vector, map)
 
+    state_vector = [[state_vector[i], state_vector[i+1], state_vector[i+2]] for i in range(0, len(state_vector), 3)]
+
+    compounded_scans = ToWorldFrame(state_vector, map)
     points1 = compounded_scans[-1]
     H = []
     overlap_threshold = 50
@@ -101,60 +90,8 @@ def OverlappingScansConvex(state_vector, map):
 
         # compute the intersection area
         intersection_area = poly1.intersection(poly2).area
-        # print(intersection_area/poly1.area)
 
         if (intersection_area/poly1.area)*100 >= overlap_threshold:
             H.append(i)
 
-
-        '''Uncomment to visulaize things'''
-        # plt.plot(points1[hull1.vertices,0], points1[hull1.vertices,1], 'r--', lw=2)
-        # # plt.plot(points1[hull1.vertices[0],0], points1[hull1.vertices[0],1], 'ro')
-
-        # plt.plot(points2[hull2.vertices,0], points2[hull2.vertices,1], 'b--', lw=2)
-        # # plt.plot(points2[hull2.vertices[0],0], points2[hull2.vertices[0],1], 'ro')
-        # plt.show()
-
     return H
-
-
-
-
-# scan1 = []
-# scan2 = []
-# scan3 = []
-
-# with open('scan1.txt', 'r') as f:
-#     content = f.readlines()
-#     for line in content:
-#         coordinates = line.split()
-#         scan1.append([float(coordinates[0]), float(coordinates[1])])
-
-
-# with open('scan2.txt', 'r') as f:
-#     content = f.readlines()
-#     for line in content:
-#         coordinates = line.split()
-#         scan2.append([float(coordinates[0]), float(coordinates[1])])
-
-
-# with open('scan3.txt', 'r') as f:
-#     content = f.readlines()
-#     for line in content:
-#         coordinates = line.split()
-#         scan3.append([float(coordinates[0]), float(coordinates[1])])
-
-# scan1 = np.array(scan1)
-# scan2 = np.array(scan2)
-# scan3 = np.array(scan3)
-
-# Map = [scan1, scan2, scan3]
-
-# P1 = [8.952061389220677316e-07, -6.361812210453066930e-11, -1.044700073057142620e-05]
-# P2 = [5.882918886136125416e-03, -7.026800482131475081e-03, -1.641024133333284230e+00]
-# P3 = [2.883825026077073139e-01, -1.402247462826852198e-01, -9.072827003143387747e-01]
-# state_vector = [P1, P2, P3]
-
-# print(OverlappingScans(state_vector, Map))
-# # print(OverlappingScansConvex(state_vector, Map))
-
