@@ -1,4 +1,9 @@
-﻿# Hands-on Intervention
+﻿# Hands-on Localization
+
+##dependencies:
+
+pip install shapely
+pip install scipy
 
 last update:
 

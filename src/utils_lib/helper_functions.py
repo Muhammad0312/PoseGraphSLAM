@@ -1,41 +1,54 @@
 import numpy as np
 import math
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
+from math import sin, cos, atan2
 
 def euclidean_distance(x, y):
   x,y = np.array(x), np.array(y)
   return np.sqrt(np.sum((x - y)**2))
 
-def get_polar_line(line, odom=[0.0, 0.0, 0.0]):
+########################################################################
 
-    """
-    Transform a line from cartesian to polar coordinates.
-    Transforms a line from [x1 y1 x2 y2] from the world frame to robot frame using odomotrey [x y ang].
-    By default only transforms line to polar without translation.
-    :param numpy.ndarray line: line as [x1 y1 x2 y2].
-    :param list odom: the origin of the frame as [x y ang].
-    :returns: the polar line as [range theta].
-    :rtype: :py:obj:`numpy.ndarray`
-    """
-    # Line points
-    x1 = line[0]
-    y1 = line[1]
-    x2 = line[2]
-    y2 = line[3]
+def check_distance_bw_scans(xk, dist_th, ang_th):
 
-    # Compute line (a, b, c) and range
-    line = np.array([y1-y2, x2-x1, x1*y2-x2*y1])
-    pt = np.array([odom[0], odom[1], 1])
-    dist = np.dot(pt, line) / np.linalg.norm(line[:2])
+    last_scan_pose = xk[-6:-3]  # 2nd last state in state vector
+    curr_pose = xk[-3:]         # last state in state vector
+    
+    dist_since_last_scan = euclidean_distance(last_scan_pose[:2], curr_pose[:2]) 
+    rot_since_last_scan = abs(last_scan_pose[2] - curr_pose[2])
 
-    # Compute angle
-    if dist < 0:
-        ang = np.arctan2(line[1], line[0])
+    # only add pose/scan if we have move significantly
+    if dist_since_last_scan > dist_th:# or rot_since_last_scan > ang_th:
+         return True
     else:
-        ang = np.arctan2(-line[1], -line[0])
+         return False
+    
+########################################################################
 
-    # Return in the vehicle frame
-    return np.array([np.abs(dist), angle_wrap(ang - odom[2])])
+def pose_inversion(xy_state):
+    x,y,theta = xy_state
+    # theta = -theta
+    new_x = -x*cos(theta) - y*sin(theta)
+    new_y = x*sin(theta) - y*cos(theta)
+    new_theta = -theta
+    return [new_x,new_y,new_theta] 
+
+########################################################################
+
+def compounding(a_x_b, b_x_c):
+    x_b,y_b,theta_b = a_x_b
+    x_c,y_c,theta_c = b_x_c
+
+    new_x = x_b + x_c*cos(theta_b) - y_c*sin(theta_b)
+    new_y = y_b + x_c*sin(theta_b) + y_c*cos(theta_b)
+    new_theta = theta_b + theta_c
+    
+    return [new_x,new_y,new_theta] 
+
+########################################################################
+
+def get_h(prev_pose, new_pose):
+        return compounding(pose_inversion(prev_pose), new_pose)
 
 ########################################################################
 

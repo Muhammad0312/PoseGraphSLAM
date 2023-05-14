@@ -4,11 +4,7 @@ from mpl_toolkits import mplot3d
 from scipy.spatial import KDTree
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
 from shapely.geometry import Polygon
-'''
-pip install shapely
-pip install scipy
 
-'''
 '''
 The sign of the angle has been changed from the pose vector
 '''
@@ -85,6 +81,7 @@ def OverlappingScans(state_vector, map):
     return H
 
 def OverlappingScansConvex(state_vector, map):
+    
     compounded_scans = ToWorldFrame(state_vector, map)
 
     points1 = compounded_scans[-1]
@@ -123,41 +120,41 @@ def OverlappingScansConvex(state_vector, map):
 
 
 
-scan1 = []
-scan2 = []
-scan3 = []
+# scan1 = []
+# scan2 = []
+# scan3 = []
 
-with open('scan1.txt', 'r') as f:
-    content = f.readlines()
-    for line in content:
-        coordinates = line.split()
-        scan1.append([float(coordinates[0]), float(coordinates[1])])
-
-
-with open('scan2.txt', 'r') as f:
-    content = f.readlines()
-    for line in content:
-        coordinates = line.split()
-        scan2.append([float(coordinates[0]), float(coordinates[1])])
+# with open('scan1.txt', 'r') as f:
+#     content = f.readlines()
+#     for line in content:
+#         coordinates = line.split()
+#         scan1.append([float(coordinates[0]), float(coordinates[1])])
 
 
-with open('scan3.txt', 'r') as f:
-    content = f.readlines()
-    for line in content:
-        coordinates = line.split()
-        scan3.append([float(coordinates[0]), float(coordinates[1])])
+# with open('scan2.txt', 'r') as f:
+#     content = f.readlines()
+#     for line in content:
+#         coordinates = line.split()
+#         scan2.append([float(coordinates[0]), float(coordinates[1])])
 
-scan1 = np.array(scan1)
-scan2 = np.array(scan2)
-scan3 = np.array(scan3)
 
-Map = [scan1, scan2, scan3]
+# with open('scan3.txt', 'r') as f:
+#     content = f.readlines()
+#     for line in content:
+#         coordinates = line.split()
+#         scan3.append([float(coordinates[0]), float(coordinates[1])])
 
-P1 = [8.952061389220677316e-07, -6.361812210453066930e-11, -1.044700073057142620e-05]
-P2 = [5.882918886136125416e-03, -7.026800482131475081e-03, -1.641024133333284230e+00]
-P3 = [2.883825026077073139e-01, -1.402247462826852198e-01, -9.072827003143387747e-01]
-state_vector = [P1, P2, P3]
+# scan1 = np.array(scan1)
+# scan2 = np.array(scan2)
+# scan3 = np.array(scan3)
 
-print(OverlappingScans(state_vector, Map))
-# print(OverlappingScansConvex(state_vector, Map))
+# Map = [scan1, scan2, scan3]
+
+# P1 = [8.952061389220677316e-07, -6.361812210453066930e-11, -1.044700073057142620e-05]
+# P2 = [5.882918886136125416e-03, -7.026800482131475081e-03, -1.641024133333284230e+00]
+# P3 = [2.883825026077073139e-01, -1.402247462826852198e-01, -9.072827003143387747e-01]
+# state_vector = [P1, P2, P3]
+
+# print(OverlappingScans(state_vector, Map))
+# # print(OverlappingScansConvex(state_vector, Map))
 
