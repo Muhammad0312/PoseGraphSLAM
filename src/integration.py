@@ -19,6 +19,7 @@ from utils_lib.add_new_pose import AddNewPose
 from utils_lib.get_scan import get_scan  
 from utils_lib.overlapping_scan import OverlappingScans
 from utils_lib.register_ICP import icp
+from utils_lib.Observation_Update import*
 
 class PoseGraphSLAM:
     def __init__(self) -> None:
@@ -123,7 +124,7 @@ class PoseGraphSLAM:
         F2k[-3:] = Wk
 
         return F1k, F2k
-     #########################-_________________________________________________________________________________________________-##########################################
+     #########################-____________________________-##########################################
 
     def predict (self,msg):
         # print('in predict')
@@ -176,7 +177,7 @@ class PoseGraphSLAM:
                     Ho = OverlappingScans(self.xk, self.map)
                     print('Num scans: ', len(self.map))
                     print('Overlap Ho: ', Ho)
-
+                    Z_matched=[]
                     # for each matched pair
                     for j in Ho:
                         print('------------- mathcing started ---------')
@@ -193,6 +194,9 @@ class PoseGraphSLAM:
 
                         zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint)
                         print('icp displacement: ', zr)
+                        Z_matched.append[zr]
+                    Zk, Rk, Hk, Vk = ObservationMatrix(Ho, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
+                    print("Zk",Zk,"Rk", Rk, "Hk",Hk, "Vk",Vk)
 
         # self.update_running = False
         self.publish_viewpoints()
