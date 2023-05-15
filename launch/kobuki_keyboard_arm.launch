@@ -6,6 +6,6 @@
 
 
     <!-- Topic remapping -->
-    <!-- <remap from="/turtlebot/swiftpro/joint_velocity_controller/command" to="hardware_topic"/>  -->
+    <!-- <remap from="/turtlebot/swiftpro/joint_velocity_controller/command" to="/turtlebot/swiftpro/joint_velocity_controller/command"/>  -->
 
 </launch>
