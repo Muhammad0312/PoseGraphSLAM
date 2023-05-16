@@ -194,9 +194,13 @@ class PoseGraphSLAM:
 
                         zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint)
                         print('icp displacement: ', zr)
-                        Z_matched.append[zr]
+                        Z_matched.append(zr)
+                    Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
+                    # print("zp",Z_matched)
+                    # print("Ho",Ho)
+                    # print("self.xk",self.xk)
                     Zk, Rk, Hk, Vk = ObservationMatrix(Ho, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
-                    print("Zk",Zk,"Rk", Rk, "Hk",Hk, "Vk",Vk)
+                    # print("Zk",Zk,"Rk", Rk, "Hk",Hk, "Vk",Vk)
 
         # self.update_running = False
         self.publish_viewpoints()

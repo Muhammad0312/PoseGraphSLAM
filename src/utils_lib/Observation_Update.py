@@ -29,8 +29,8 @@ def PoseCompoundingJacobian1(Pose1, Pose2):
     Pose1 = [x, y, theta] = nXb
     Pose2 = [x, y, theta] = bXc
     '''
+    print("Pose1",Pose1,"Pose2",Pose2)
     theta1 = Pose1[2]
-
     x2 = Pose2[0]
     y2 = Pose2[1]
 
@@ -77,6 +77,13 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
     Zp = [del_x0, del_y0, del_theta0, del_x1, del_y1, del_theta1, .........]
     Rp = []
     '''
+    StateVector=np.array(StateVector)
+    Hp = np.array(Hp)
+    Zp = np.array(Zp)
+    Rp = np.array([[0.1, 0, 0],
+                [0, 0.1, 0],
+                [0, 0, 0.1]])
+
     Zk = Zp
     Rk = Rp
     Vk = np.eye((Zp.shape)[0])
@@ -86,7 +93,8 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
     CurrentViewpointInverted = PoseInversion(CurrentViewpoint)
     r = 0
     for index in Hp:
-        OverlappedViewpoint = StateVector[index*3: index+3]
+        OverlappedViewpoint = StateVector[index*3: index+3]  ####### extracting the overlapping isnot correct OverlappedViewpoint [0.10475148]
+        print("OverlappedViewpoint",OverlappedViewpoint)
         J2 = PoseCompoundingJacobian2(CurrentViewpointInverted, OverlappedViewpoint)
         J1 = PoseCompoundingJacobian1(CurrentViewpointInverted, OverlappedViewpoint)
         J = PoseInversionJacobian(CurrentViewpoint)
@@ -111,20 +119,20 @@ def Update(nXk, nPk, Zk, Rk, Hk, Vk, Hp=0):
     
     return X_k, P_k
 
-state_vector = np.array([0, 0, 0, 1, 1, np.pi/4, 1, 1, np.pi/4])
-nPk = np.eye(9)
-Hp = np.array([0])
-Zp = np.array([1, 1, np.pi/4])
-Rp = np.array([[0.1, 0, 0],
-               [0, 0.1, 0],
-               [0, 0, 0.1]])
+# state_vector = np.array([0, 0, 0, 1, 1, np.pi/4, 1, 1, np.pi/4])
+# nPk = np.eye(9)
+# Hp = np.array([0])
+# Zp = np.array([1, 1, np.pi/4,1, 1, np.pi/4])
+# Rp = np.array([[0.1, 0, 0],
+#                [0, 0.1, 0],
+#                [0, 0, 0.1]])
 
-Zk, Rk, Hk, Vk = ObservationMatrix(Hp, state_vector, Zp, Rp)
-Xk, Pk = Update(state_vector, nPk, Zk, Rk, Hk, Vk)
+# Zk, Rk, Hk, Vk = ObservationMatrix(Hp, state_vector, Zp, Rp)
+# Xk, Pk = Update(state_vector, nPk, Zk, Rk, Hk, Vk)
 
-print('Zk : ', Zk.shape)
-print('Rk : ', Rk.shape)
-print('Hk : ', Hk.shape)
-print('Vk : ', Vk.shape)
-print('Xk : ', Xk.shape)
-print('Pk : ', Pk.shape)
+# print('Zk : ', Zk.shape)
+# print('Rk : ', Rk.shape)
+# print('Hk : ', Hk.shape)
+# print('Vk : ', Vk.shape)
+# print('Xk : ', Xk.shape)
+# print('Pk : ', Pk.shape)
