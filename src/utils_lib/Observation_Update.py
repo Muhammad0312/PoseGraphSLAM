@@ -29,7 +29,7 @@ def PoseCompoundingJacobian1(Pose1, Pose2):
     Pose1 = [x, y, theta] = nXb
     Pose2 = [x, y, theta] = bXc
     '''
-    print("Pose1",Pose1,"Pose2",Pose2)
+    # print("Pose1",Pose1,"Pose2",Pose2)
     theta1 = Pose1[2]
     x2 = Pose2[0]
     y2 = Pose2[1]
@@ -93,8 +93,9 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
     CurrentViewpointInverted = PoseInversion(CurrentViewpoint)
     r = 0
     for index in Hp:
-        OverlappedViewpoint = StateVector[index*3: index+3]  ####### extracting the overlapping isnot correct OverlappedViewpoint [0.10475148]
-        print("OverlappedViewpoint",OverlappedViewpoint)
+        # OverlappedViewpoint = StateVector[index*3: index+3]  ####### extracting the overlapping isnot correct OverlappedViewpoint [0.10475148]
+        OverlappedViewpoint = StateVector[index*3: index*3+3]
+        # print("OverlappedViewpoint",OverlappedViewpoint)
         J2 = PoseCompoundingJacobian2(CurrentViewpointInverted, OverlappedViewpoint)
         J1 = PoseCompoundingJacobian1(CurrentViewpointInverted, OverlappedViewpoint)
         J = PoseInversionJacobian(CurrentViewpoint)
@@ -112,6 +113,7 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
 #================================================
 
 def Update(nXk, nPk, Zk, Rk, Hk, Vk, Hp=0):
+    # print("nPk",nPk)
 
     K_k = nPk @ Hk.T @ np.linalg.inv(Hk @ nPk @ Hk.T + Vk @ Rk @ Vk.T)
     X_k = nXk + K_k @ (Zk - Hk @ nXk)
@@ -119,20 +121,20 @@ def Update(nXk, nPk, Zk, Rk, Hk, Vk, Hp=0):
     
     return X_k, P_k
 
-# state_vector = np.array([0, 0, 0, 1, 1, np.pi/4, 1, 1, np.pi/4])
-# nPk = np.eye(9)
-# Hp = np.array([0])
-# Zp = np.array([1, 1, np.pi/4,1, 1, np.pi/4])
-# Rp = np.array([[0.1, 0, 0],
-#                [0, 0.1, 0],
-#                [0, 0, 0.1]])
+state_vector = np.array([0, 0, 0, 1, 1, np.pi/4, 1, 1, np.pi/4])
+nPk = np.eye(9)
+Hp = np.array([0])
+Zp = np.array([1, 1, np.pi/4])
+Rp = np.array([[0.1, 0, 0],
+               [0, 0.1, 0],
+               [0, 0, 0.1]])
 
-# Zk, Rk, Hk, Vk = ObservationMatrix(Hp, state_vector, Zp, Rp)
-# Xk, Pk = Update(state_vector, nPk, Zk, Rk, Hk, Vk)
+Zk, Rk, Hk, Vk = ObservationMatrix(Hp, state_vector, Zp, Rp)
+Xk, Pk = Update(state_vector, nPk, Zk, Rk, Hk, Vk)
 
-# print('Zk : ', Zk.shape)
-# print('Rk : ', Rk.shape)
-# print('Hk : ', Hk.shape)
-# print('Vk : ', Vk.shape)
-# print('Xk : ', Xk.shape)
-# print('Pk : ', Pk.shape)
+print('Zk : ', Zk.shape)
+print('Rk : ', Rk.shape)
+print('Hk : ', Hk.shape)
+print('Vk : ', Vk.shape)
+print('Xk : ', Xk.shape)
+print('Pk : ', Pk.shape)

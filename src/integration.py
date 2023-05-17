@@ -200,7 +200,8 @@ class PoseGraphSLAM:
                     # print("Ho",Ho)
                     # print("self.xk",self.xk)
                     Zk, Rk, Hk, Vk = ObservationMatrix(Ho, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
-                    # print("Zk",Zk,"Rk", Rk, "Hk",Hk, "Vk",Vk)
+                    self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk)
+
 
         # self.update_running = False
         self.publish_viewpoints()
