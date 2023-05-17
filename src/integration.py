@@ -196,9 +196,6 @@ class PoseGraphSLAM:
                         print('icp displacement: ', zr)
                         Z_matched.append(zr)
                     Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
-                    # print("zp",Z_matched)
-                    # print("Ho",Ho)
-                    # print("self.xk",self.xk)
                     Zk, Rk, Hk, Vk = ObservationMatrix(Ho, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
                     self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk)
 
