@@ -97,7 +97,7 @@ class PoseGraphSLAM:
         right_lin_vel = self.right_wheel_velocity * self.wheel_radius
 
         self.v = (left_lin_vel + right_lin_vel) / 2.0
-        self.w = (right_lin_vel - left_lin_vel) / self.wheel_base_distance
+        self.w = (left_lin_vel-right_lin_vel) / self.wheel_base_distance
     
         #calculate dt
         current_time = rospy.Time.from_sec(msg.header.stamp.secs + msg.header.stamp.nsecs * 1e-9)
@@ -196,9 +196,6 @@ class PoseGraphSLAM:
                         print('icp displacement: ', zr)
                         Z_matched.append(zr)
                     Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
-                    # print("zp",Z_matched)
-                    # print("Ho",Ho)
-                    # print("self.xk",self.xk)
                     Zk, Rk, Hk, Vk = ObservationMatrix(Ho, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
                     self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk)
 
@@ -349,7 +346,6 @@ if __name__ == '__main__':
     rospy.spin()
 
     
-
 
 
 

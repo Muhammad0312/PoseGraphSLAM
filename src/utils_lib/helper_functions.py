@@ -48,7 +48,9 @@ def compounding(a_x_b, b_x_c):
 ########################################################################
 
 def get_h(prev_pose, new_pose):
-        return compounding(pose_inversion(prev_pose), new_pose)
+        # return compounding(pose_inversion(prev_pose), new_pose)
+        return comp(pose_inversion(prev_pose), new_pose)
+
 
 ########################################################################
 
@@ -216,108 +218,36 @@ def Mahalanobis_distance(v,S):
 
 ########################################################################
 
-def ekf_data_association(xk,map,lines,Pk,Rk):
-        """
-        takes map lines and measured lines 
-        nx4 matrix with a segment in each row as [x1 y1 x2 y2]
-        Look for closest correspondences.
-        The correspondences are between the provided measured lines and the map
-        known a priori.
-        Return:
-          Hk_list : list of 2x3 matrices (jacobian)
-          Yk_list : list of 2x1 matrices (innovation)
-          Sk_list : list of 2x2 matrices (innovation uncertainty)
-          Rk_list : list of 2x2 matrices (measurement uncertainty)
-        """
-        chi_thres = 0.103   # the larger the more the model accepts more observations and updates more frequently 
-        associd = list()
-        Hk_list = list()
-        Vk_list = list()
-        Sk_list = list()
-        Rk_list = list()
+# def ekf_update(xk,Pk,Hk_list, Vk_list, Sk_list, Rk_list):
+#         """
+#         Update the position of the robot according to the given matrices.
+#         The matrices contain the current position and the data association
+#         parameters. All input lists have the same lenght.
+#         Input:
+#           Hk_list : list of 2x3 matrices (jacobian)
+#           Yk_list : list of 2x1 matrices (innovation)
+#           Sk_list : list of 2x2 matrices (innovation uncertainty)
+#           Rk_list : list of 2x2 matrices (measurement uncertainty)
+#         """
+#         # Compose list of matrices as single matrices
+#         n = len(Hk_list)
+#         H = np.zeros((2*n, 3))
+#         v = np.zeros((2*n))
+#         S = np.zeros((2*n, 2*n))
+#         R = np.zeros((2*n, 2*n))
 
-        # the lengths for map lines and measured lines  (equations from particle filter lab)
-        map_line = np.sqrt(np.power(map[:,2] -  map[:,0],2) + np.power(map[:,3] - map[:,1],2))  # map lines (2)
-        observed_line = np.sqrt(np.power(lines[:,2] - lines[:,0],2) + np.power(lines[:,3] - lines[:,1],2)) # sensed lines (2)
-
-        # For each observed line
-        for i in range(0, lines.shape[0]):
-            # Get the polar line representation in robot frame
-            z = get_polar_line(lines[i],[0,0,0])
-            # Variables for finding minimum
-            minD = 1e9
-            minj = -1
-
-            # For each line in the known map
-            for j in range(0, map.shape[0]):
-
-                # Compute matrices
-                h = get_polar_line(map[j],[0,0,0]) # get_polar_line(-,odom) - world coo - calc jacobian 
-                H = jacobianH(h,xk)
-                h = get_polar_line(map[j],xk) # Map line is in the robot- calc innovation
-                v = z - h
-                S = np.dot(np.dot(H,Pk),np.transpose(H)) + Rk
-                D = Mahalanobis_distance(v,S)
-
-                # check if observed line is longer than map 
-                islonger = False
-                if observed_line[i] < map_line[j]:
-                  islonger = False
-                  pass
-                else:
-                    islonger = True
-
-                # Check if the obseved line is the one with smallest mahalanobis distance
-                if np.sqrt(D) < minD and not islonger:
-                    minj = j
-                    minz = z
-                    minh = h
-                    minH = H
-                    minv = v
-                    minS = S
-                    minD = D
-
-            # Minimum distance below threshold
-            if minD < chi_thres:
-                associd.append([i, minj])
-                Hk_list.append(minH)
-                Vk_list.append(minv)
-                Sk_list.append(minS)
-                Rk_list.append(Rk)
-        return Hk_list, Vk_list, Sk_list, Rk_list
-
-########################################################################
-
-def ekf_update(xk,Pk,Hk_list, Vk_list, Sk_list, Rk_list):
-        """
-        Update the position of the robot according to the given matrices.
-        The matrices contain the current position and the data association
-        parameters. All input lists have the same lenght.
-        Input:
-          Hk_list : list of 2x3 matrices (jacobian)
-          Yk_list : list of 2x1 matrices (innovation)
-          Sk_list : list of 2x2 matrices (innovation uncertainty)
-          Rk_list : list of 2x2 matrices (measurement uncertainty)
-        """
-        # Compose list of matrices as single matrices
-        n = len(Hk_list)
-        H = np.zeros((2*n, 3))
-        v = np.zeros((2*n))
-        S = np.zeros((2*n, 2*n))
-        R = np.zeros((2*n, 2*n))
-
-        for i in range(n):
-            H[2*i:2*i+2, :] = Hk_list[i]
-            v[2*i:2*i+2] = Vk_list[i]
-            S[2*i:2*i+2, 2*i:2*i+2] = Sk_list[i]
-            R[2*i:2*i+2, 2*i:2*i+2] = Rk_list[i]
-        # There is data to update
-        if not n > 0:
-          #print ("There is data to update")
-            return
-        # near optimal kalman gain  (substitute by the value of resigual coveriance)
-        K = np.dot(np.dot(Pk, np.transpose(H)), np.linalg.inv(S))  # equation (1)
-        xk += np.dot(K,v)# Update the mean of state vector  # equation (2)
-        I = np.eye(3)
-        # Update the uncertainty matrix
-        Pk = np.dot(np.dot((I - np.dot(K,H)), Pk),np.transpose(I - np.dot(K,H))) # equation (3)  
+#         for i in range(n):
+#             H[2*i:2*i+2, :] = Hk_list[i]
+#             v[2*i:2*i+2] = Vk_list[i]
+#             S[2*i:2*i+2, 2*i:2*i+2] = Sk_list[i]
+#             R[2*i:2*i+2, 2*i:2*i+2] = Rk_list[i]
+#         # There is data to update
+#         if not n > 0:
+#           #print ("There is data to update")
+#             return
+#         # near optimal kalman gain  (substitute by the value of resigual coveriance)
+#         K = np.dot(np.dot(Pk, np.transpose(H)), np.linalg.inv(S))  # equation (1)
+#         xk += np.dot(K,v)# Update the mean of state vector  # equation (2)
+#         I = np.eye(3)
+#         # Update the uncertainty matrix
+#         Pk = np.dot(np.dot((I - np.dot(K,H)), Pk),np.transpose(I - np.dot(K,H))) # equation (3)  

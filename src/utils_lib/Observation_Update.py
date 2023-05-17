@@ -80,10 +80,7 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
     StateVector=np.array(StateVector)
     Hp = np.array(Hp)
     Zp = np.array(Zp)
-    Rp = np.array([[0.1, 0, 0],
-                [0, 0.1, 0],
-                [0, 0, 0.1]])
-
+    Rp =0.1*np.eye((Zp.shape)[0])
     Zk = Zp
     Rk = Rp
     Vk = np.eye((Zp.shape)[0])
@@ -113,28 +110,15 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
 #================================================
 
 def Update(nXk, nPk, Zk, Rk, Hk, Vk, Hp=0):
-    # print("nPk",nPk)
+    print("nPk: ",nPk.shape)
+    print('Zk : ', Zk.shape)
+    print('Rk : ', Rk.shape)
+    print('Hk : ', Hk.shape)
+    print('Vk : ', Vk.shape)
+    print('Xk : ', nXk.shape)
 
     K_k = nPk @ Hk.T @ np.linalg.inv(Hk @ nPk @ Hk.T + Vk @ Rk @ Vk.T)
     X_k = nXk + K_k @ (Zk - Hk @ nXk)
     P_k = (np.eye(nPk.shape[0]) - K_k @ Hk) @ nPk
     
     return X_k, P_k
-
-state_vector = np.array([0, 0, 0, 1, 1, np.pi/4, 1, 1, np.pi/4])
-nPk = np.eye(9)
-Hp = np.array([0])
-Zp = np.array([1, 1, np.pi/4])
-Rp = np.array([[0.1, 0, 0],
-               [0, 0.1, 0],
-               [0, 0, 0.1]])
-
-Zk, Rk, Hk, Vk = ObservationMatrix(Hp, state_vector, Zp, Rp)
-Xk, Pk = Update(state_vector, nPk, Zk, Rk, Hk, Vk)
-
-print('Zk : ', Zk.shape)
-print('Rk : ', Rk.shape)
-print('Hk : ', Hk.shape)
-print('Vk : ', Vk.shape)
-print('Xk : ', Xk.shape)
-print('Pk : ', Pk.shape)
