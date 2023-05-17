@@ -77,6 +77,13 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
     Zp = [del_x0, del_y0, del_theta0, del_x1, del_y1, del_theta1, .........]
     Rp = []
     '''
+    StateVector=np.array(StateVector)
+    Hp = np.array(Hp)
+    Zp = np.array(Zp)
+    Rp = np.array([[0.1, 0, 0],
+                [0, 0.1, 0],
+                [0, 0, 0.1]])
+
     Zk = Zp
     Rk = Rp
     Vk = np.eye((Zp.shape)[0])
@@ -86,7 +93,10 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
     CurrentViewpointInverted = PoseInversion(CurrentViewpoint)
     r = 0
     for index in Hp:
-        OverlappedViewpoint = StateVector[index*3: index+3]
+        # OverlappedViewpoint = StateVector[index*3: index+3]  
+        ####### extracting the overlapping isnot correct OverlappedViewpoint [0.10475148]
+        OverlappedViewpoint = StateVector[index*3: index*3+3]
+        # print("OverlappedViewpoint",OverlappedViewpoint)
         J2 = PoseCompoundingJacobian2(CurrentViewpointInverted, OverlappedViewpoint)
         J1 = PoseCompoundingJacobian1(CurrentViewpointInverted, OverlappedViewpoint)
         J = PoseInversionJacobian(CurrentViewpoint)
