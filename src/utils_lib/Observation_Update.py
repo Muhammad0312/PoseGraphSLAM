@@ -94,7 +94,6 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
     r = 0
     for index in Hp:
         # OverlappedViewpoint = StateVector[index*3: index+3]  
-        ####### extracting the overlapping isnot correct OverlappedViewpoint [0.10475148]
         OverlappedViewpoint = StateVector[index*3: index*3+3]
         # print("OverlappedViewpoint",OverlappedViewpoint)
         J2 = PoseCompoundingJacobian2(CurrentViewpointInverted, OverlappedViewpoint)
