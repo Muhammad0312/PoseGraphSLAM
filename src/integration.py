@@ -60,7 +60,7 @@ class PoseGraphSLAM:
 
         # scan related variables
         self.dist_th = 0.1   # take scan if displacement is > 0.2m, 0.5
-        self.ang_th = 0.785 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees) 
+        self.ang_th = 0.175 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees) 
 
         self.map = []  # = [s1, s2, s3, s4]
 
@@ -170,7 +170,7 @@ class PoseGraphSLAM:
 
     def scan_available(self,scan_msg):
 
-        scan = get_scan(scan_msg) 
+        scan = get_scan(scan_msg)
 
         if scan != []:
             if len(self.xk) == 3 : #add initial scan

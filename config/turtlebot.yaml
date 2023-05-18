@@ -1,0 +1,11 @@
+joint_state_controller:
+  type: joint_state_controller/JointStateController
+  publish_rate: 10.0
+
+joint_velocity_controller:
+  type: velocity_controllers/JointGroupVelocityController
+  joints:
+    - turtlebot/swiftpro/joint1
+    - turtlebot/swiftpro/joint2
+    - turtlebot/swiftpro/joint3
+    - turtlebot/swiftpro/joint4

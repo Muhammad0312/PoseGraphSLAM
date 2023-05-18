@@ -10,7 +10,7 @@ last update:
 ## HOW TO RUN:
 
 **launch sim**
-1. roslaunch turtlebot_simulation turtlebot_hoi_circuit1.launch
+1. roslaunch pose-graph-slam turtlebot_hoi_circuit1.launch
 
 **Launch manual control nodes**
 

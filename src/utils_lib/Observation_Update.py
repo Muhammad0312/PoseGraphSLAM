@@ -109,7 +109,7 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
 #===========Seriously Under Construction=========
 #================================================
 
-def Update(nXk, nPk, Zk, Rk, Hk, Vk,hk, Hp=0):
+def Update(nXk, nPk, Zk, Rk, Hk, Vk, hk, Hp=0):
     print("guesss displacment inside", hk)
     print("Zk",Zk)
     print("nPk: ",nPk.shape)
