@@ -52,10 +52,20 @@ def find_closest_points(A_transformed, B):
     return distances, indices
 
 def icp(A, B, pose1, pose2, init_transform=None, max_iterations=20, tolerance=1e-3):
+    
     if init_transform is None: 
         init_transform=get_transformation_matrix(pose1, pose2)
+        print('init icp transform: ',get_displacement_from_T(init_transform))
+    else:
+        x, y, theta = init_transform
+        cos_theta = np.cos(theta)
+        sin_theta = np.sin(theta)
 
-    print('init icp transform: ',get_displacement_from_T(init_transform))
+        init_transform = np.array([[cos_theta, -sin_theta, x],
+                            [sin_theta, cos_theta, y],
+                            [0, 0, 1]])
+        print('init icp transform: ',get_displacement_from_T(init_transform))
+    
 
     A = np.array([list(x) for x in zip(*A)])
     B = np.array([list(x) for x in zip(*B)])
@@ -89,7 +99,7 @@ def icp(A, B, pose1, pose2, init_transform=None, max_iterations=20, tolerance=1e
             break
     final_transform = dummy
 
-    displacement = get_displacement_from_T(inv(final_transform))
+    displacement = get_displacement_from_T(final_transform)
 
     return displacement, single_error[:i+1]
 

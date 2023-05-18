@@ -13,13 +13,20 @@ from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
 from geometry_msgs.msg import Point
 from sensor_msgs.msg import LaserScan
-
+from geometry_msgs.msg import Pose
+from nav_msgs.msg import Odometry
+import math
 from utils_lib.helper_functions import *
 from utils_lib.add_new_pose import AddNewPose  
 from utils_lib.get_scan import get_scan  
 from utils_lib.overlapping_scan import OverlappingScans
 from utils_lib.register_ICP import icp
 from utils_lib.Observation_Update import*
+from sensor_msgs.msg import PointCloud2
+from sensor_msgs.msg import LaserScan
+from sensor_msgs import point_cloud2
+
+
 
 class PoseGraphSLAM:
     def __init__(self) -> None:
@@ -72,7 +79,13 @@ class PoseGraphSLAM:
         
         # Viewpoints visualizer
         self.viewpoints_pub = rospy.Publisher("/slam/vis_viewpoints",MarkerArray,queue_size=1)
-        self.h_lines_pub = rospy.Publisher("/slam/vis_h_lines",MarkerArray,queue_size=1)
+        # self.h_lines_pub = rospy.Publisher("/slam/vis_h_lines",MarkerArray,queue_size=1)
+        # self.guess_displacement_pub = rospy.Publisher("guess_displacement", Odometry, queue_size=10)
+
+        # # Publisher for icp_displacement
+        # self.icp_displacement_pub = rospy.Publisher("icp_displacement", Odometry, queue_size=10)
+
+
 
         self.tf_br = TransformBroadcaster()
     
@@ -156,8 +169,7 @@ class PoseGraphSLAM:
 
     def scan_available(self,scan_msg):
 
-        scan = get_scan(scan_msg)
-        # print('curr scan: ', scan)
+        scan = get_scan(scan_msg) 
 
         if scan != []:
             if len(self.xk) == 3 : #add initial scan
@@ -188,16 +200,51 @@ class PoseGraphSLAM:
                         matched_viewpoint = self.xk[j*3:3*j+3]
 
                         # Obervation Model
-                        guess_displacement = get_h(matched_viewpoint, curr_viewpoint)
+                        guess_displacement = get_h(curr_viewpoint, matched_viewpoint)
                         # P = J bla bla
-                        print('guess_displacement: ', guess_displacement)
 
-                        zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint)
+                        zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint,guess_displacement)
+                        print('guess_displacement: ', guess_displacement)
                         print('icp displacement: ', zr)
+                        # if Rr[-1] <= 5:
+                        #     print('guess_displacement: ', guess_displacement)
+                        #     print('icp displacement: ', zr)
                         Z_matched.append(zr)
+                        #     guess_displacement_msg = Odometry()
+                        #     guess_displacement_msg.header.frame_id = "world_ned"
+                        #     guess_displacement_msg.pose.pose.position.x = guess_displacement[0]
+                        #     guess_displacement_msg.pose.pose.position.y = guess_displacement[1]
+
+                        #     # Set the orientation quaternion based on the theta angle
+                        #     theta = guess_displacement[2]
+                        #     quaternion = quaternion_from_euler(0, 0, theta)  # Assuming theta represents yaw
+                        #     guess_displacement_msg.pose.pose.orientation.x = quaternion[0]
+                        #     guess_displacement_msg.pose.pose.orientation.y = quaternion[1]
+                        #     guess_displacement_msg.pose.pose.orientation.z = quaternion[2]
+                        #     guess_displacement_msg.pose.pose.orientation.w = quaternion[3]
+
+                        #     self.guess_displacement_pub.publish(guess_displacement_msg)
+
+                        #     icp_displacement_msg = Odometry()
+                        #     icp_displacement_msg.header.frame_id = "world_ned"
+                        #     icp_displacement_msg.pose.pose.position.x = zr[0]
+                        #     icp_displacement_msg.pose.pose.position.y = zr[1]
+
+                        #     # Set the orientation quaternion based on the theta angle
+                        #     theta = zr[2]
+                        #     quaternion = quaternion_from_euler(0, 0, theta)  # Assuming theta represents yaw
+                        #     icp_displacement_msg.pose.pose.orientation.x = quaternion[0]
+                        #     icp_displacement_msg.pose.pose.orientation.y = quaternion[1]
+                        #     icp_displacement_msg.pose.pose.orientation.z = quaternion[2]
+                        #     icp_displacement_msg.pose.pose.orientation.w = quaternion[3]
+
+                        #     self.icp_displacement_pub.publish(icp_displacement_msg)
+                        # else:
+                        #     pass
                     Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
                     Zk, Rk, Hk, Vk = ObservationMatrix(Ho, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
-                    self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk)
+                    # self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk)
+                    print("self.xk",self.xk)
 
 
         # self.update_running = False
@@ -226,7 +273,7 @@ class PoseGraphSLAM:
             ref_list.append(ref_pose)
             h_list.append(h)
         
-        self.publish_h_lines(ref_list, h_list)
+        # self.publish_h_lines(ref_list, h_list)
 
     def publish_h_lines(self, ref_list, h_list):
 
@@ -236,7 +283,7 @@ class PoseGraphSLAM:
         for i in range(len(ref_list)-1):
             # Create a marker for each line segment
             myMarker = Marker()
-            myMarker.header.frame_id = "world"
+            myMarker.header.frame_id = "world_ned"
             myMarker.type = myMarker.LINE_LIST
             myMarker.action = myMarker.ADD
             myMarker.id = i 
@@ -275,7 +322,7 @@ class PoseGraphSLAM:
 
         for i in range(0,len(self.xk),3):
             myMarker = Marker()
-            myMarker.header.frame_id = "world"
+            myMarker.header.frame_id = "world_ned"
             myMarker.type = myMarker.SPHERE # sphere
             myMarker.action = myMarker.ADD
             myMarker.id = i
@@ -315,7 +362,7 @@ class PoseGraphSLAM:
 
         odom = Odometry()
         odom.header.stamp = current_time
-        odom.header.frame_id = "world"
+        odom.header.frame_id = "world_ned"
         odom.child_frame_id = self.child_frame_id
 
         odom.pose.pose.position.x = self.xk[-3]

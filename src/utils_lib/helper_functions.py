@@ -38,7 +38,7 @@ def pose_inversion(xy_state):
 def compounding(a_x_b, b_x_c):
     x_b,y_b,theta_b = a_x_b
     x_c,y_c,theta_c = b_x_c
-
+    # print("theta_b",theta_b,"theta_c",theta_c)
     new_x = x_b + x_c*cos(theta_b) - y_c*sin(theta_b)
     new_y = y_b + x_c*sin(theta_b) + y_c*cos(theta_b)
     new_theta = theta_b + theta_c
@@ -48,8 +48,7 @@ def compounding(a_x_b, b_x_c):
 ########################################################################
 
 def get_h(prev_pose, new_pose):
-        # return compounding(pose_inversion(prev_pose), new_pose)
-        return comp(pose_inversion(prev_pose), new_pose)
+        return compounding(pose_inversion(prev_pose), new_pose)
 
 
 ########################################################################

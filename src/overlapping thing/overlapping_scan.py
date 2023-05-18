@@ -89,7 +89,7 @@ def OverlappingScansConvex(state_vector, map):
 
     points1 = compounded_scans[-1]
     H = []
-    overlap_threshold = 50
+    overlap_threshold = 90
 
     for i in range(0, len(compounded_scans) - 1):
         points2 = compounded_scans[i]
