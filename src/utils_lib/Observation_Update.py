@@ -109,7 +109,9 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
 #===========Seriously Under Construction=========
 #================================================
 
-def Update(nXk, nPk, Zk, Rk, Hk, Vk, Hp=0):
+def Update(nXk, nPk, Zk, Rk, Hk, Vk,hk, Hp=0):
+    print("guesss displacment inside", hk)
+    print("Zk",Zk)
     print("nPk: ",nPk.shape)
     print('Zk : ', Zk.shape)
     print('Rk : ', Rk.shape)
@@ -118,7 +120,7 @@ def Update(nXk, nPk, Zk, Rk, Hk, Vk, Hp=0):
     print('Xk : ', nXk.shape)
 
     K_k = nPk @ Hk.T @ np.linalg.inv(Hk @ nPk @ Hk.T + Vk @ Rk @ Vk.T)
-    X_k = nXk + K_k @ (Zk - Hk @ nXk)
+    X_k = nXk + K_k @ (Zk - hk)
     P_k = (np.eye(nPk.shape[0]) - K_k @ Hk) @ nPk
     
     return X_k, P_k

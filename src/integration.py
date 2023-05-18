@@ -190,6 +190,7 @@ class PoseGraphSLAM:
                     print('Num scans: ', len(self.map))
                     print('Overlap Ho: ', Ho)
                     Z_matched=[]
+                    h=[]
                     # for each matched pair
                     for j in Ho:
                         print('------------- mathcing started ---------')
@@ -202,13 +203,14 @@ class PoseGraphSLAM:
                         # Obervation Model
                         guess_displacement = get_h(curr_viewpoint, matched_viewpoint)
                         # P = J bla bla
-
                         zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint,guess_displacement)
                         print('guess_displacement: ', guess_displacement)
                         print('icp displacement: ', zr)
                         # if Rr[-1] <= 5:
                         #     print('guess_displacement: ', guess_displacement)
                         #     print('icp displacement: ', zr)
+                        h.append(guess_displacement)
+
                         Z_matched.append(zr)
                         #     guess_displacement_msg = Odometry()
                         #     guess_displacement_msg.header.frame_id = "world_ned"
@@ -241,9 +243,10 @@ class PoseGraphSLAM:
                         #     self.icp_displacement_pub.publish(icp_displacement_msg)
                         # else:
                         #     pass
+                    h = sum(h, [])
                     Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
                     Zk, Rk, Hk, Vk = ObservationMatrix(Ho, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
-                    # self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk)
+                    self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk,h)
                     print("self.xk",self.xk)
 
 
