@@ -25,7 +25,7 @@ class VelocityConverter:
         right_vel = (2*v + w*self.L)/(2*self.r)
 
         F = Float64MultiArray()
-        F.data = [right_vel,left_vel]
+        F.data = [left_vel,right_vel]
         self.vel_pub.publish(F)
 
 if __name__ == '__main__':
