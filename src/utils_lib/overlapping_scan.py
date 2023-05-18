@@ -19,7 +19,6 @@ def PointFeatureCompounding(point, pose):
 
     return (T @ P)[0:2, :] # Take first two components and ignore the third
 
-
 def ToWorldFrame(state_vector, map):
     compounded_scans = []
     for i in range(0, len(map)):

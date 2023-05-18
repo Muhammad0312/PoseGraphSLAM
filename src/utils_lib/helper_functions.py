@@ -216,37 +216,3 @@ def Mahalanobis_distance(v,S):
     return np.dot(np.dot(np.transpose(v), np.linalg.inv(S)), v)
 
 ########################################################################
-
-# def ekf_update(xk,Pk,Hk_list, Vk_list, Sk_list, Rk_list):
-#         """
-#         Update the position of the robot according to the given matrices.
-#         The matrices contain the current position and the data association
-#         parameters. All input lists have the same lenght.
-#         Input:
-#           Hk_list : list of 2x3 matrices (jacobian)
-#           Yk_list : list of 2x1 matrices (innovation)
-#           Sk_list : list of 2x2 matrices (innovation uncertainty)
-#           Rk_list : list of 2x2 matrices (measurement uncertainty)
-#         """
-#         # Compose list of matrices as single matrices
-#         n = len(Hk_list)
-#         H = np.zeros((2*n, 3))
-#         v = np.zeros((2*n))
-#         S = np.zeros((2*n, 2*n))
-#         R = np.zeros((2*n, 2*n))
-
-#         for i in range(n):
-#             H[2*i:2*i+2, :] = Hk_list[i]
-#             v[2*i:2*i+2] = Vk_list[i]
-#             S[2*i:2*i+2, 2*i:2*i+2] = Sk_list[i]
-#             R[2*i:2*i+2, 2*i:2*i+2] = Rk_list[i]
-#         # There is data to update
-#         if not n > 0:
-#           #print ("There is data to update")
-#             return
-#         # near optimal kalman gain  (substitute by the value of resigual coveriance)
-#         K = np.dot(np.dot(Pk, np.transpose(H)), np.linalg.inv(S))  # equation (1)
-#         xk += np.dot(K,v)# Update the mean of state vector  # equation (2)
-#         I = np.eye(3)
-#         # Update the uncertainty matrix
-#         Pk = np.dot(np.dot((I - np.dot(K,H)), Pk),np.transpose(I - np.dot(K,H))) # equation (3)  

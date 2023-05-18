@@ -60,7 +60,7 @@ class PoseGraphSLAM:
 
         # scan related variables
         self.dist_th = 0.1   # take scan if displacement is > 0.2m, 0.5
-        self.ang_th = 0.785 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees) 
+        self.ang_th = 0.175 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees) 
 
         self.map = []  # = [s1, s2, s3, s4]
 
@@ -74,17 +74,11 @@ class PoseGraphSLAM:
         self.wheel_name_left = "turtlebot/kobuki/wheel_left_joint"
         self.wheel_name_right = "turtlebot/kobuki/wheel_right_joint"
 
-
         # odom publisher
         self.odom_pub = rospy.Publisher("kobuki/odom", Odometry, queue_size=10)
         
         # Viewpoints visualizer
         self.viewpoints_pub = rospy.Publisher("/slam/vis_viewpoints",MarkerArray,queue_size=1)
-        # self.h_lines_pub = rospy.Publisher("/slam/vis_h_lines",MarkerArray,queue_size=1)
-        # self.guess_displacement_pub = rospy.Publisher("guess_displacement", Odometry, queue_size=10)
-
-        # # Publisher for icp_displacement
-        # self.icp_displacement_pub = rospy.Publisher("icp_displacement", Odometry, queue_size=10)
 
         self.full_map_pub = rospy.Publisher('/slam/map', PointCloud2, queue_size=10)
 
@@ -159,10 +153,6 @@ class PoseGraphSLAM:
 
         F1k, F2k = self.get_F1k_F2k(Ak, Wk)
 
-        # self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
-
-        # print(self.Pk)
-
         self.publish_odom_predict(msg)
 
     #______________________    Update  ________________________________________________________________
@@ -208,50 +198,12 @@ class PoseGraphSLAM:
                         zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint)
                         print('guess_displacement: ', guess_displacement)
                         print('icp displacement: ', zr)
-                        # if Rr[-1] <= 5:
-                        #     print('guess_displacement: ', guess_displacement)
-                        #     print('icp displacement: ', zr)
                         h.append(guess_displacement)
-
-                        Z_matched.append(zr)
-                        #     guess_displacement_msg = Odometry()
-                        #     guess_displacement_msg.header.frame_id = "world_ned"
-                        #     guess_displacement_msg.pose.pose.position.x = guess_displacement[0]
-                        #     guess_displacement_msg.pose.pose.position.y = guess_displacement[1]
-
-                        #     # Set the orientation quaternion based on the theta angle
-                        #     theta = guess_displacement[2]
-                        #     quaternion = quaternion_from_euler(0, 0, theta)  # Assuming theta represents yaw
-                        #     guess_displacement_msg.pose.pose.orientation.x = quaternion[0]
-                        #     guess_displacement_msg.pose.pose.orientation.y = quaternion[1]
-                        #     guess_displacement_msg.pose.pose.orientation.z = quaternion[2]
-                        #     guess_displacement_msg.pose.pose.orientation.w = quaternion[3]
-
-                        #     self.guess_displacement_pub.publish(guess_displacement_msg)
-
-                        #     icp_displacement_msg = Odometry()
-                        #     icp_displacement_msg.header.frame_id = "world_ned"
-                        #     icp_displacement_msg.pose.pose.position.x = zr[0]
-                        #     icp_displacement_msg.pose.pose.position.y = zr[1]
-
-                        #     # Set the orientation quaternion based on the theta angle
-                        #     theta = zr[2]
-                        #     quaternion = quaternion_from_euler(0, 0, theta)  # Assuming theta represents yaw
-                        #     icp_displacement_msg.pose.pose.orientation.x = quaternion[0]
-                        #     icp_displacement_msg.pose.pose.orientation.y = quaternion[1]
-                        #     icp_displacement_msg.pose.pose.orientation.z = quaternion[2]
-                        #     icp_displacement_msg.pose.pose.orientation.w = quaternion[3]
-
-                        #     self.icp_displacement_pub.publish(icp_displacement_msg)
-                        # else:
-                        #     pass
+                        Z_matched.append(zr) 
                     h = sum(h, [])
                     Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
                     Zk, Rk, Hk, Vk = ObservationMatrix(Ho, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
                     self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk,h)
-                    # print("self.xk",self.xk)
-
-
         # self.update_running = False
         self.publish_viewpoints()
         self.check_obs_model()
@@ -402,7 +354,6 @@ class PoseGraphSLAM:
         self.odom_pub.publish(odom)
 
         self.tf_br.sendTransform((self.xk[-3], self.xk[-2], 0.0), q, rospy.Time.now(), odom.child_frame_id, odom.header.frame_id)
-
 
     #______________________________________________________________________-##########################################
 
