@@ -22,10 +22,11 @@ from utils_lib.get_scan import get_scan
 from utils_lib.overlapping_scan import OverlappingScans
 from utils_lib.register_ICP import icp
 from utils_lib.Observation_Update import*
+from utils_lib.scans_to_map import scans_to_map
+
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs.msg import LaserScan
 from sensor_msgs import point_cloud2
-
 
 
 class PoseGraphSLAM:
@@ -85,7 +86,7 @@ class PoseGraphSLAM:
         # # Publisher for icp_displacement
         # self.icp_displacement_pub = rospy.Publisher("icp_displacement", Odometry, queue_size=10)
 
-
+        self.full_map_pub = rospy.Publisher('/slam/map', PointCloud2, queue_size=10)
 
         self.tf_br = TransformBroadcaster()
     
@@ -241,21 +242,38 @@ class PoseGraphSLAM:
                         #     self.icp_displacement_pub.publish(icp_displacement_msg)
                         # else:
                         #     pass
-                    Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
-                    Zk, Rk, Hk, Vk = ObservationMatrix(Ho, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
-                    # self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk)
-                    print("self.xk",self.xk)
+                    # Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
+                    # Zk, Rk, Hk, Vk = ObservationMatrix(Ho, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
+                    # # self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk)
+                    # print("self.xk",self.xk)
 
 
         # self.update_running = False
         self.publish_viewpoints()
         self.check_obs_model()
+        self.publish_full_map()
 
 
     ##################      Publishing   ##############################
 
     #########################-_________________________________________________________________________________________________-##########################################
-    
+
+    def publish_full_map(self):
+        full_map = scans_to_map(self.xk, self.map)
+        print('map_shape: ', full_map)
+
+        # Create the header for the point cloud message
+        header = rospy.Header()
+        header.stamp = rospy.Time.now()
+        header.frame_id = 'world_ned'  # Set the frame ID
+
+        # Create the point cloud message
+        point_cloud_msg = point_cloud2.create_cloud_xyz32(header, full_map)
+
+        self.full_map_pub.publish(point_cloud_msg)
+
+
+
     def check_obs_model(self):
         ref_list = []
         h_list = []

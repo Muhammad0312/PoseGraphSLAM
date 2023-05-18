@@ -20,4 +20,4 @@ last update:
 
 **Launch SLAM**
 
-4. rosrun pose-graph-slam pose_graph_SLAM.py
+4. rosrun pose-graph-slam integration.py
