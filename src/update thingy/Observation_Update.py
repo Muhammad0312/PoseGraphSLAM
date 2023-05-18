@@ -80,9 +80,10 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
     StateVector=np.array(StateVector)
     Hp = np.array(Hp)
     Zp = np.array(Zp)
-    Rp = np.array([[0.1, 0, 0],
-                [0, 0.1, 0],
-                [0, 0, 0.1]])
+    # Rp = np.array([[0.1, 0, 0],
+    #             [0, 0.1, 0],
+    #             [0, 0, 0.1]])
+    Rp = 0.01*np.ones(Zp.shape)
 
     Zk = Zp
     Rk = Rp
