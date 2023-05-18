@@ -18,7 +18,7 @@ def check_distance_bw_scans(xk, dist_th, ang_th):
     rot_since_last_scan = abs(last_scan_pose[2] - curr_pose[2])
 
     # only add pose/scan if we have move significantly
-    if dist_since_last_scan > dist_th:# or rot_since_last_scan > ang_th:
+    if dist_since_last_scan > dist_th or rot_since_last_scan > ang_th:
          return True
     else:
          return False

@@ -204,7 +204,8 @@ class PoseGraphSLAM:
                         # Obervation Model
                         guess_displacement = get_h(curr_viewpoint, matched_viewpoint)
                         # P = J bla bla
-                        zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint,guess_displacement)
+                        # zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint,guess_displacement)
+                        zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint)
                         print('guess_displacement: ', guess_displacement)
                         print('icp displacement: ', zr)
                         # if Rr[-1] <= 5:

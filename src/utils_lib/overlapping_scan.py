@@ -39,7 +39,7 @@ def OverlappingScans(state_vector, map):
 
     compounded_scans = ToWorldFrame(state_vector, map)
     H = []
-    overlap_threshold = 50
+    overlap_threshold = 80
 
     point_cloud_1 = compounded_scans[-1]
     for i in range(0, len(compounded_scans) - 1):
