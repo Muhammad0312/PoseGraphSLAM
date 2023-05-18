@@ -46,9 +46,3 @@ def scans_to_map(state_vector, map):
     return full_scan
 
     
-
-
-M = [[[1,2],[2,4]],[[3,4],[4,2]],[[4,3],[5,6]]]
-x = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
-
-print(scans_to_map(x, M))

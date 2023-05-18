@@ -248,7 +248,7 @@ class PoseGraphSLAM:
                     Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
                     Zk, Rk, Hk, Vk = ObservationMatrix(Ho, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
                     self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk,h)
-                    print("self.xk",self.xk)
+                    # print("self.xk",self.xk)
 
 
         # self.update_running = False
@@ -263,7 +263,7 @@ class PoseGraphSLAM:
 
     def publish_full_map(self):
         full_map = scans_to_map(self.xk, self.map)
-        print('map_shape: ', full_map)
+        # print('map_shape: ', full_map)
 
         # Create the header for the point cloud message
         header = rospy.Header()
