@@ -40,9 +40,9 @@ class PoseGraphSLAM:
         self.xk = np.zeros(3)
 
         # initial covariance matrix
-        self.Pk = np.array([[0.04, 0, 0],    
-                            [0, 0.04, 0],
-                            [0, 0, 0.04]])     
+        self.Pk = np.array([[0.0, 0, 0],    
+                            [0, 0.0, 0],
+                            [0, 0, 0.0]])     
         # odometry noise covariance
         self.Qk = np.array([[0.05**2, 0],     
                              [0, 0.05**2]])
