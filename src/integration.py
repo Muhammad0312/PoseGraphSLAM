@@ -41,12 +41,12 @@ class PoseGraphSLAM:
         self.xk = np.zeros(3)
 
         # initial covariance matrix
-        self.Pk = np.array([[0.0, 0, 0],    
-                            [0, 0.0, 0],
-                            [0, 0, 0.0]])     
+        self.Pk = np.array([[0.1, 0, 0],    
+                            [0, 0.1, 0],
+                            [0, 0, 0.1]])     
         # odometry noise covariance
-        self.Qk = np.array([[0.05**2, 0],     
-                             [0, 0.05**2]])
+        self.Qk = np.array([[0.2**2, 0],     
+                             [0, 0.2**2]])
 
 
         # prediction related variables
@@ -135,8 +135,10 @@ class PoseGraphSLAM:
      #########################-____________________________-##########################################
 
     def predict (self,msg):
-        # print('in predict')
+        print('predict start --------------')
 
+        print('xk shape: ', self.xk.shape)
+        print('Pk shape: ', self.Pk.shape)
         # if update is running don't run prediction
         # if not self.update_running:
         dt = self.State_model(msg) 
@@ -152,6 +154,33 @@ class PoseGraphSLAM:
         # print(self.xk[-1])
 
         F1k, F2k = self.get_F1k_F2k(Ak, Wk)
+        
+        if self.xk.shape[0] > self.Pk.shape[0]:
+            self.xk = self.xk[0:-3] 
+        elif self.xk.shape[0] < self.Pk.shape[0]:
+            self.Pk = self.Pk[0:-3,0:-3] 
+        else:
+            self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
+        
+        print('xk size: ',self.xk.shape[0])
+        print('map size: ',len(self.map))
+        if len(self.map) > self.xk.shape[0] - 1 :
+            self.map = self.map[:-1]
+
+        # print("self.Pk",self.Pk[-3:,-3:])
+
+        print('xk shape: ', self.xk.shape)
+        print('Pk shape: ', self.Pk.shape)
+
+        print('predict end --------------')
+        
+
+        # try:
+        #     self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
+        #     print("self.Pk",self.Pk[-3:,-3:])
+        # except:
+        #     # self.error_flag = True
+             
 
         self.publish_odom_predict(msg)
 
@@ -178,14 +207,14 @@ class PoseGraphSLAM:
 
                     # Overlapping Scans
                     Ho = OverlappingScans(self.xk, self.map)
-                    print('Num scans: ', len(self.map))
-                    print('Overlap Ho: ', Ho)
+                    # print('Num scans: ', len(self.map))
+                    # print('Overlap Ho: ', Ho)
                     Z_matched=[]
                     h=[]
                     # for each matched pair
                     for j in Ho:
-                        print('------------- mathcing started ---------')
-                        print('scan index: ', j)
+                        # print('------------- mathcing started ---------')
+                        # print('scan index: ', j)
                         match_scan = self.map[j]
                         
                         curr_viewpoint = self.xk[-3:]
@@ -196,14 +225,15 @@ class PoseGraphSLAM:
                         # P = J bla bla
                         # zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint,guess_displacement)
                         zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint)
-                        print('guess_displacement: ', guess_displacement)
-                        print('icp displacement: ', zr)
+                        # print("Rr", Rr)
+                        # print('guess_displacement: ', guess_displacement)
+                        # print('icp displacement: ', zr)
                         h.append(guess_displacement)
                         Z_matched.append(zr) 
                     h = sum(h, [])
                     Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
-                    Zk, Rk, Hk, Vk = ObservationMatrix(Ho, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
-                    self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk,h)
+                    # Zk, Rk, Hk, Vk = ObservationMatrix(Ho, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
+                    # self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk,h)
         # self.update_running = False
         self.publish_viewpoints()
         self.check_obs_model()
@@ -327,12 +357,12 @@ class PoseGraphSLAM:
         current_time = rospy.Time.from_sec(msg.header.stamp.secs + msg.header.stamp.nsecs * 1e-9)
         q = quaternion_from_euler(0, 0, self.xk[-1])
         
-        covar = [self.Pk[0,0], self.Pk[0,1], 0.0, 0.0, 0.0, self.Pk[0,2],
-                self.Pk[1,0], self.Pk[1,1], 0.0, 0.0, 0.0, self.Pk[1,2],  
+        covar = [self.Pk[-3,-3], self.Pk[-3,-2], 0.0, 0.0, 0.0, self.Pk[-3,-1],
+                self.Pk[-2,-3], self.Pk[-2,-2], 0.0, 0.0, 0.0, self.Pk[-2,-1],  
                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  
                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  
                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
-                self.Pk[2,0], self.Pk[2,1], 0.0, 0.0, 0.0, self.Pk[2,2]]
+                self.Pk[-1,-3], self.Pk[-1,-2], 0.0, 0.0, 0.0, self.Pk[-1,-1]]
 
         odom = Odometry()
         odom.header.stamp = current_time
