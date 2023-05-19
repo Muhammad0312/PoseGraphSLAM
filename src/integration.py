@@ -159,7 +159,7 @@ class PoseGraphSLAM:
 
         F1k, F2k = self.get_F1k_F2k(Ak, Wk)
 
-        # self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
+        self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
 
         # print(self.Pk)
 

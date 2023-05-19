@@ -11,6 +11,9 @@ def AddNewPose(x, P):
     # x_new[n-3:, :] = np.array([x[0], [0], [0]])
     x_new[n-3:, :] = np.array([x[-3], x[-2], x[-1]])
 
+    # Saving the last diagonal for cloning
+    last_diagonal = P[-3: , -3:]
+
     last_col = P[:, -3:]
     # print("last_col",last_col)
     P_new = np.hstack((P_new, last_col))
@@ -18,6 +21,7 @@ def AddNewPose(x, P):
     # print("last_row",last_row)
     P_new = np.vstack((P_new, last_row))
     # print("P_new",P_new.shape)
+    P_new[-3:,-3:] = last_diagonal
 
     return x_new.T[0], P_new
 
