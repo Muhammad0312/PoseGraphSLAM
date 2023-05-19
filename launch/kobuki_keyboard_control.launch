@@ -4,7 +4,7 @@
         <!-- Add any node-specific arguments or parameters here -->
     </node>
 
-    <!-- Node 2 --> -->
+    <!-- Node 2 -->
     <node name="teleop_key" pkg="pose-graph-slam" type="kobuki_teleop.py" output="screen"> 
         <!-- Add any node-specific arguments or parameters here -->
     </node>
