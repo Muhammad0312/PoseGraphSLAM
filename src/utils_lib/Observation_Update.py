@@ -53,23 +53,6 @@ def PoseCompoundingJacobian2(Pose1, Pose2):
     
     return J
 
-# def PoseCompounding(PreviousViewpointInvertedPose, NewViewpointPose):
-
-#     x1 = PreviousViewpointInvertedPose[0]
-#     y1 = PreviousViewpointInvertedPose[1]
-#     theta1 = PreviousViewpointInvertedPose[2]
-
-#     x2 = NewViewpointPose[0]
-#     y2 = NewViewpointPose[1]
-#     theta2 = NewViewpointPose[2]
-
-#     x = x1 + x2*np.cos(theta1) - y2*np.sin(theta1)
-#     y = y1 + x2*np.sin(theta1) + y2*np.cos(theta1)
-#     theta = theta1 + theta2
-#     CompoundedPose = np.array([x, y, theta])
-
-#     return CompoundedPose
-
 def ObservationMatrix(Hp, StateVector, Zp, Rp):
     '''
     StateVector = [x0, y0, theta0, x1, y1, theta1, ..........]
@@ -77,10 +60,11 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
     Zp = [del_x0, del_y0, del_theta0, del_x1, del_y1, del_theta1, .........]
     Rp = []
     '''
+    
     StateVector=np.array(StateVector)
     Hp = np.array(Hp)
     Zp = np.array(Zp)
-    Rp =0.1*np.eye((Zp.shape)[0])
+    Rp =0.001*np.eye((Zp.shape)[0])
     Zk = Zp
     Rk = Rp
     Vk = np.eye((Zp.shape)[0])

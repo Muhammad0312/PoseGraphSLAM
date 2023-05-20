@@ -39,31 +39,38 @@ class PoseGraphSLAM:
         self.wheel_base_distance = 0.230
         self.update_running = False
 
+        # Store the map
         self.map = []  # = [s1, s2, s3, s4]
+        # Store scan as soon as it is available
         self.scan = []
+
+        # Store groundtruth pose
+        self.gt_pose = np.zeros(3)
+        # Subscriber to groundtruth
+        self.gt_sub = rospy.Subscriber("/turtlebot/stonefish_simulator/ground_truth_odometry", Odometry, self.get_gt)
+
         # Pose initialization
-        self.xk = np.zeros(3)
+        self.xk = np.array([0.0, 0.0, 0.0])
+        # Groundtruth state vector
+        self.gt_xk = np.array([0.0, 0.0, 0.0])
 
         # initial covariance matrix
-        self.Pk = np.array([[0.1, 0, 0],    
-                            [0, 0.1, 0],
-                            [0, 0, 0.1]])   
-
-        print('Before adding new pose xk:', self.xk.shape)
-        print('Before adding new pose Pk:', self.Pk.shape)
-
+        self.Pk = np.array([[0.0, 0, 0],    
+                            [0, 0.0, 0],
+                            [0, 0, 0.0]])   
+        
+        # Subscriber to lidar
         self.scan_sub = rospy.Subscriber("/turtlebot/kobuki/sensors/rplidar", LaserScan, self.scan_available)
 
+        # Add new pose to keep predicting
         self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
 
-        print('After adding new pose xk:', self.xk.shape)
-        print('After adding new pose Pk:', self.Pk.shape)
-
         self.tf_br = TransformBroadcaster()
+        # Subscriber to get joint states
         self.js_sub = rospy.Subscriber("/turtlebot/joint_states", JointState, self.predict)
-        # odometry noise covariance
-        self.Qk = np.array([[0.2**2, 0],     
-                             [0, 0.2**2]])
+        # Odometry noise covariance
+        self.Qk = np.array([[0.005, 0],     
+                             [0, 0.005]])
 
 
         # prediction related variables
@@ -76,17 +83,12 @@ class PoseGraphSLAM:
         self.left_wheel_received = False
 
         # scan related variables
-        self.dist_th = 0.05   # take scan if displacement is > 0.2m, 0.5
-        self.ang_th = 0.085 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees) 
-
-        
+        self.dist_th = 0.03   # take scan if displacement is > 0.2m, 0.5
+        self.ang_th = 0.055 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees)
 
         self.last_time = rospy.Time.now()
 
         # If using turtlebot_hoi<>.launch _________________
-        
-        
-        
         self.child_frame_id = "turtlebot/kobuki/base_footprint"
         self.wheel_name_left = "turtlebot/kobuki/wheel_left_joint"
         self.wheel_name_right = "turtlebot/kobuki/wheel_right_joint"
@@ -96,7 +98,6 @@ class PoseGraphSLAM:
         
         # Viewpoints visualizer
         self.viewpoints_pub = rospy.Publisher("/slam/vis_viewpoints",MarkerArray,queue_size=1)
-
         self.full_map_pub = rospy.Publisher('/slam/map', PointCloud2, queue_size=10)
 
         
@@ -104,7 +105,6 @@ class PoseGraphSLAM:
     #_______________________   Predictions __________________________________________________________________
 
     def State_model (self,msg):
-        # self.mutex.acquire()
 
         if msg.name[0] == self.wheel_name_left:
             self.left_wheel_velocity = msg.velocity[0]
@@ -146,8 +146,6 @@ class PoseGraphSLAM:
                 self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
                 # print('Pk Updated')
 
-                # self.Pk = np.dot(np.dot(Ak, self.Pk),Ak.T) + np.dot(np.dot(Wk, self.Qk),Wk.T)  
-
                 # State updates x' = x + d * cos(theta) y' = y + d * sin(theta)
                 self.xk[-3] = self.xk[-3] + self.v * dt * np.cos(self.xk[-1])
                 self.xk[-2] = self.xk[-2] + self.v * dt * np.sin(self.xk[-1]) 
@@ -155,7 +153,6 @@ class PoseGraphSLAM:
 
                 self.left_wheel_received = False
         
-        # self.mutex.release()
 
     
     def get_F1k_F2k(self, Ak, Wk):
@@ -171,19 +168,15 @@ class PoseGraphSLAM:
     
 
     def predict (self,msg):
-        # print('predict start --------------')
+        # Use mutex to prevent different subscriber from using the same resource simultaneously
         with self.mutex:
             self.State_model(msg) 
-
-            # print('predict end --------------')
-
             self.publish_odom_predict(msg)
 
     #______________________    Update  ________________________________________________________________
     
 
     def scan_available(self,scan_msg):
-        # self.mutex.acquire()
         self.scan = get_scan(scan_msg)
         if len(self.map) == 0:
             self.map.append(self.scan)
@@ -194,12 +187,17 @@ class PoseGraphSLAM:
                 self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
                 self.map.append(np.array(self.scan))
 
+                # Store the actual viewpoint in the groundtruth state vector
+                self.gt_xk = np.hstack((self.gt_xk, self.gt_pose))
+
+                # print('Ground truth state vector: ', self.gt_xk)
+
                 # print('Xk inside scan: ',self.xk.shape)
                 # print('Pk inside scan: ',self.Pk.shape)
                 # print('Number of scans inside scan: ',len(self.map))
                 # Overlapping Scans
                 Ho = OverlappingScans(self.xk[0:-3], self.map)
-                print('Num scans inside scan: ', len(self.map))
+                # print('Num scans inside scan: ', len(self.map))
                 print('Overlap Ho inside scan: ', Ho)
                 Z_matched=[]
                 h=[]
@@ -210,16 +208,25 @@ class PoseGraphSLAM:
                     match_scan = self.map[j]
                     
                     curr_viewpoint = self.xk[-6:-3]
-                    matched_viewpoint = self.xk[j*3:3*j+3]
+                    matched_viewpoint = self.xk[j*3: 3*j+3]
+
+                    curr_viewpoint_gt = self.gt_xk[-3: ]
+                    matched_viewpoint_gt = self.gt_xk[j*3: 3*j+3]
 
                     # Obervation Model
                     guess_displacement = get_h(curr_viewpoint, matched_viewpoint)
+                    actual_displacement = get_h(curr_viewpoint_gt, matched_viewpoint_gt)
                     # P = J bla bla
                     # zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint,guess_displacement)
                     zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint)
-                    # print("Rr", Rr)
-                    # print('guess_displacement: ', guess_displacement)
-                    # print('icp displacement: ', zr)
+                    
+                    # Suppress scientific notations while displaying numbers
+                    np.set_printoptions(suppress=True)
+                    print('===================================================')
+                    print('Actual displacement: ', np.round(actual_displacement, 6))
+                    print('Expected result: ', np.round(guess_displacement, 6))
+                    print('ICP: ', np.round(zr, 6))
+                    
                     h.append(guess_displacement)
                     Z_matched.append(zr) 
                 h = sum(h, [])
@@ -238,9 +245,17 @@ class PoseGraphSLAM:
 
     #########################-_________________________________________________________________________________________________-##########################################
 
+    def get_gt(self, msg):
+        euler = euler_from_quaternion([msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])
+        self.gt_pose[0] = msg.pose.pose.position.x
+        self.gt_pose[1] = msg.pose.pose.position.y
+        self.gt_pose[2] = euler[-1]
+
+
+
     def publish_full_map(self):
-        print('State vector: ',self.xk.shape)
-        print('Map: ', len(self.map))
+        # print('State vector: ',self.xk.shape)
+        # print('Map: ', len(self.map))
         full_map = scans_to_map(self.xk, self.map)
         # print('map_shape: ', full_map)
 
