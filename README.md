@@ -11,6 +11,8 @@ last update:
 
 **launch sim**
 1. roslaunch turtlebot_simulation turtlebot_hoi_circuit1.launch
+or 
+2. roslaunch turtlebot_simulation turtlebot_hoi_circuit2.launch
 
 **Launch manual control nodes**
 

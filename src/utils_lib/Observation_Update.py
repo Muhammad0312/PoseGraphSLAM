@@ -53,22 +53,22 @@ def PoseCompoundingJacobian2(Pose1, Pose2):
     
     return J
 
-def PoseCompounding(PreviousViewpointInvertedPose, NewViewpointPose):
+# def PoseCompounding(PreviousViewpointInvertedPose, NewViewpointPose):
 
-    x1 = PreviousViewpointInvertedPose[0]
-    y1 = PreviousViewpointInvertedPose[1]
-    theta1 = PreviousViewpointInvertedPose[2]
+#     x1 = PreviousViewpointInvertedPose[0]
+#     y1 = PreviousViewpointInvertedPose[1]
+#     theta1 = PreviousViewpointInvertedPose[2]
 
-    x2 = NewViewpointPose[0]
-    y2 = NewViewpointPose[1]
-    theta2 = NewViewpointPose[2]
+#     x2 = NewViewpointPose[0]
+#     y2 = NewViewpointPose[1]
+#     theta2 = NewViewpointPose[2]
 
-    x = x1 + x2*np.cos(theta1) - y2*np.sin(theta1)
-    y = y1 + x2*np.sin(theta1) + y2*np.cos(theta1)
-    theta = theta1 + theta2
-    CompoundedPose = np.array([x, y, theta])
+#     x = x1 + x2*np.cos(theta1) - y2*np.sin(theta1)
+#     y = y1 + x2*np.sin(theta1) + y2*np.cos(theta1)
+#     theta = theta1 + theta2
+#     CompoundedPose = np.array([x, y, theta])
 
-    return CompoundedPose
+#     return CompoundedPose
 
 def ObservationMatrix(Hp, StateVector, Zp, Rp):
     '''
@@ -110,12 +110,12 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
 def Update(nXk, nPk, Zk, Rk, Hk, Vk,hk, Hp=0):
     print("guesss displacment inside", hk)
     print("Zk",Zk)
-    print("nPk: ",nPk.shape)
-    print('Zk : ', Zk.shape)
-    print('Rk : ', Rk.shape)
-    print('Hk : ', Hk.shape)
-    print('Vk : ', Vk.shape)
-    print('Xk : ', nXk.shape)
+    # print("nPk: ",nPk.shape)
+    # print('Zk : ', Zk.shape)
+    # print('Rk : ', Rk.shape)
+    # print('Hk : ', Hk.shape)
+    # print('Vk : ', Vk.shape)
+    # print('Xk : ', nXk.shape)
 
     K_k = nPk @ Hk.T @ np.linalg.inv(Hk @ nPk @ Hk.T + Vk @ Rk @ Vk.T)
     X_k = nXk + K_k @ (Zk - hk)

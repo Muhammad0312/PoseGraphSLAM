@@ -27,23 +27,40 @@ from utils_lib.scans_to_map import scans_to_map
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs.msg import LaserScan
 from sensor_msgs import point_cloud2
+import threading
 
 
 class PoseGraphSLAM:
     def __init__(self) -> None:
 
+        self.mutex = threading.Lock()
         # robot constants
         self.wheel_radius = 0.035
         self.wheel_base_distance = 0.230
         self.update_running = False
 
+        self.map = []  # = [s1, s2, s3, s4]
+        self.scan = []
         # Pose initialization
         self.xk = np.zeros(3)
 
         # initial covariance matrix
         self.Pk = np.array([[0.1, 0, 0],    
                             [0, 0.1, 0],
-                            [0, 0, 0.1]])     
+                            [0, 0, 0.1]])   
+
+        print('Before adding new pose xk:', self.xk.shape)
+        print('Before adding new pose Pk:', self.Pk.shape)
+
+        self.scan_sub = rospy.Subscriber("/turtlebot/kobuki/sensors/rplidar", LaserScan, self.scan_available)
+
+        self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
+
+        print('After adding new pose xk:', self.xk.shape)
+        print('After adding new pose Pk:', self.Pk.shape)
+
+        self.tf_br = TransformBroadcaster()
+        self.js_sub = rospy.Subscriber("/turtlebot/joint_states", JointState, self.predict)
         # odometry noise covariance
         self.Qk = np.array([[0.2**2, 0],     
                              [0, 0.2**2]])
@@ -59,16 +76,16 @@ class PoseGraphSLAM:
         self.left_wheel_received = False
 
         # scan related variables
-        self.dist_th = 0.1   # take scan if displacement is > 0.2m, 0.5
-        self.ang_th = 0.175 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees) 
+        self.dist_th = 0.05   # take scan if displacement is > 0.2m, 0.5
+        self.ang_th = 0.085 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees) 
 
-        self.map = []  # = [s1, s2, s3, s4]
+        
 
         self.last_time = rospy.Time.now()
 
         # If using turtlebot_hoi<>.launch _________________
-        self.js_sub = rospy.Subscriber("/turtlebot/joint_states", JointState, self.predict)
-        self.odom_pub = rospy.Subscriber("/turtlebot/kobuki/sensors/rplidar", LaserScan, self.scan_available)
+        
+        
         
         self.child_frame_id = "turtlebot/kobuki/base_footprint"
         self.wheel_name_left = "turtlebot/kobuki/wheel_left_joint"
@@ -82,47 +99,66 @@ class PoseGraphSLAM:
 
         self.full_map_pub = rospy.Publisher('/slam/map', PointCloud2, queue_size=10)
 
-        self.tf_br = TransformBroadcaster()
+        
     
     #_______________________   Predictions __________________________________________________________________
 
     def State_model (self,msg):
-        # print(msg.name[0])
+        # self.mutex.acquire()
 
         if msg.name[0] == self.wheel_name_left:
             self.left_wheel_velocity = msg.velocity[0]
-            # print('got left wheel')
-            # self.left_wheel_received = True
-                # return
+            self.left_wheel_received = True
+            return
+        
         elif msg.name[0] == self.wheel_name_right:
             self.right_wheel_velocity = msg.velocity[0]
-            # print('got right wheel')
-            # self.right_wheel_received = True
 
-        # if (self.left_wheel_received and self.right_wheel_received):
-            # Do calculations
-        left_lin_vel = self.left_wheel_velocity * self.wheel_radius
-        right_lin_vel = self.right_wheel_velocity * self.wheel_radius
+            if self.left_wheel_received:
+                # Do calculations
+                left_lin_vel = self.left_wheel_velocity * self.wheel_radius
+                right_lin_vel = self.right_wheel_velocity * self.wheel_radius
 
-        self.v = (left_lin_vel + right_lin_vel) / 2.0
-        self.w = (left_lin_vel-right_lin_vel) / self.wheel_base_distance
-    
-        #calculate dt
-        current_time = rospy.Time.from_sec(msg.header.stamp.secs + msg.header.stamp.nsecs * 1e-9)
-        dt = (current_time - self.last_time).to_sec()
-        self.last_time = current_time
+                self.v = (left_lin_vel + right_lin_vel) / 2.0
+                self.w = (left_lin_vel-right_lin_vel) / self.wheel_base_distance
+            
+                #calculate dt
+                current_time = rospy.Time.from_sec(msg.header.stamp.secs + msg.header.stamp.nsecs * 1e-9)
+                dt = (current_time - self.last_time).to_sec()
+                self.last_time = current_time
+
+                Ak = np.array([[1, 0, -self.v * dt * np.sin(self.xk[-1])],
+                                [0, 1, self.v * dt * np.cos(self.xk[-1])],
+                                [0, 0, 1]]) 
+
+                Wk = np.array([[dt*self.wheel_radius*np.cos(self.xk[-1])/2,   dt*self.wheel_radius*np.cos(self.xk[-1])/2],
+                                [dt*self.wheel_radius*np.sin(self.xk[-1])/2,  dt*self.wheel_radius*np.sin(self.xk[-1])/2],
+                                [dt*self.wheel_radius/self.wheel_base_distance,    -dt*self.wheel_radius/self.wheel_base_distance]])
+                
+                F1k, F2k = self.get_F1k_F2k(Ak, Wk)
+                # print('========================')
+                # print('F1k: ', F1k.shape)
+                # print('Pk: ', self.Pk.shape)
+                # print('F1k.T: ', F1k.T.shape)
+                # print('F2k: ', F2k.shape)
+                # print('Qk: ', self.Qk.shape)
+                # print('F2k.T: ', F2k.T.shape)
+                self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
+                # print('Pk Updated')
+
+                # self.Pk = np.dot(np.dot(Ak, self.Pk),Ak.T) + np.dot(np.dot(Wk, self.Qk),Wk.T)  
+
+                # State updates x' = x + d * cos(theta) y' = y + d * sin(theta)
+                self.xk[-3] = self.xk[-3] + self.v * dt * np.cos(self.xk[-1])
+                self.xk[-2] = self.xk[-2] + self.v * dt * np.sin(self.xk[-1]) 
+                self.xk[-1] = self.xk[-1] + self.w * dt
+
+                self.left_wheel_received = False
         
-        
-        # State updates x' = x + d * cos(theta) y' = y + d * sin(theta)
-        self.xk[-3] = self.xk[-3] + self.v * dt * np.cos(self.xk[-1])
-        self.xk[-2] = self.xk[-2] + self.v * dt * np.sin(self.xk[-1]) 
-        self.xk[-1] = self.xk[-1] + self.w * dt
+        # self.mutex.release()
 
-        return dt 
     
     def get_F1k_F2k(self, Ak, Wk):
-
-        I = np.eye(3).astype(np.float32)
         F1k = np.zeros((len(self.xk),len(self.xk)))
         F1k[-3:,-3:] = Ak
         for i in range(len(self.xk)-3):
@@ -132,111 +168,69 @@ class PoseGraphSLAM:
         F2k[-3:] = Wk
 
         return F1k, F2k
-     #########################-____________________________-##########################################
+    
 
     def predict (self,msg):
-        print('predict start --------------')
+        # print('predict start --------------')
+        with self.mutex:
+            self.State_model(msg) 
 
-        print('xk shape: ', self.xk.shape)
-        print('Pk shape: ', self.Pk.shape)
-        # if update is running don't run prediction
-        # if not self.update_running:
-        dt = self.State_model(msg) 
+            # print('predict end --------------')
 
-        Ak = np.array([[1, 0, -self.v * dt * np.sin(self.xk[-1])],
-                    [0, 1, self.v * dt * np.cos(self.xk[-1])],
-                    [0, 0, 1]]) 
-
-        Wk = np.array([[dt*self.wheel_radius*np.cos(self.xk[-1])/2,   dt*self.wheel_radius*np.cos(self.xk[-1])/2],
-                        [dt*self.wheel_radius*np.sin(self.xk[-1])/2,  dt*self.wheel_radius*np.sin(self.xk[-1])/2],
-                        [dt*self.wheel_radius/self.wheel_base_distance,    -dt*self.wheel_radius/self.wheel_base_distance]])
-            
-        # print(self.xk[-1])
-
-        F1k, F2k = self.get_F1k_F2k(Ak, Wk)
-        
-        if self.xk.shape[0] > self.Pk.shape[0]:
-            self.xk = self.xk[0:-3] 
-        elif self.xk.shape[0] < self.Pk.shape[0]:
-            self.Pk = self.Pk[0:-3,0:-3] 
-        else:
-            self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
-        
-        print('xk size: ',self.xk.shape[0])
-        print('map size: ',len(self.map))
-        if len(self.map) > self.xk.shape[0] - 1 :
-            self.map = self.map[:-1]
-
-        # print("self.Pk",self.Pk[-3:,-3:])
-
-        print('xk shape: ', self.xk.shape)
-        print('Pk shape: ', self.Pk.shape)
-
-        print('predict end --------------')
-        
-
-        # try:
-        #     self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
-        #     print("self.Pk",self.Pk[-3:,-3:])
-        # except:
-        #     # self.error_flag = True
-             
-
-        self.publish_odom_predict(msg)
+            self.publish_odom_predict(msg)
 
     #______________________    Update  ________________________________________________________________
     
 
     def scan_available(self,scan_msg):
-
-        scan = get_scan(scan_msg) 
-
-        if scan != []:
-            if len(self.xk) == 3 : #add initial scan
+        # self.mutex.acquire()
+        self.scan = get_scan(scan_msg)
+        if len(self.map) == 0:
+            self.map.append(self.scan)
+        
+        if check_distance_bw_scans(self.xk, self.dist_th, self.ang_th):
+            with self.mutex:
+                # add new scan and pose
                 self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
-                self.map.append(np.array(scan))
-            else:
+                self.map.append(np.array(self.scan))
 
-                is_add_scan = check_distance_bw_scans(self.xk, self.dist_th, self.ang_th)
+                # print('Xk inside scan: ',self.xk.shape)
+                # print('Pk inside scan: ',self.Pk.shape)
+                # print('Number of scans inside scan: ',len(self.map))
+                # Overlapping Scans
+                Ho = OverlappingScans(self.xk[0:-3], self.map)
+                print('Num scans inside scan: ', len(self.map))
+                print('Overlap Ho inside scan: ', Ho)
+                Z_matched=[]
+                h=[]
+                # for each matched pair
+                for j in Ho:
+                    # print('------------- mathcing started ---------')
+                    # print('scan index: ', j)
+                    match_scan = self.map[j]
+                    
+                    curr_viewpoint = self.xk[-6:-3]
+                    matched_viewpoint = self.xk[j*3:3*j+3]
 
-                # only add pose/scan if we have move significantly
-                if is_add_scan: 
-                    # add new scan and pose
-                    self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
-                    self.map.append(np.array(scan))
-
-                    # Overlapping Scans
-                    Ho = OverlappingScans(self.xk, self.map)
-                    # print('Num scans: ', len(self.map))
-                    # print('Overlap Ho: ', Ho)
-                    Z_matched=[]
-                    h=[]
-                    # for each matched pair
-                    for j in Ho:
-                        # print('------------- mathcing started ---------')
-                        # print('scan index: ', j)
-                        match_scan = self.map[j]
-                        
-                        curr_viewpoint = self.xk[-3:]
-                        matched_viewpoint = self.xk[j*3:3*j+3]
-
-                        # Obervation Model
-                        guess_displacement = get_h(curr_viewpoint, matched_viewpoint)
-                        # P = J bla bla
-                        # zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint,guess_displacement)
-                        zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint)
-                        # print("Rr", Rr)
-                        # print('guess_displacement: ', guess_displacement)
-                        # print('icp displacement: ', zr)
-                        h.append(guess_displacement)
-                        Z_matched.append(zr) 
-                    h = sum(h, [])
-                    Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
-                    # Zk, Rk, Hk, Vk = ObservationMatrix(Ho, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
-                    # self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk,h)
+                    # Obervation Model
+                    guess_displacement = get_h(curr_viewpoint, matched_viewpoint)
+                    # P = J bla bla
+                    # zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint,guess_displacement)
+                    zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint)
+                    # print("Rr", Rr)
+                    # print('guess_displacement: ', guess_displacement)
+                    # print('icp displacement: ', zr)
+                    h.append(guess_displacement)
+                    Z_matched.append(zr) 
+                h = sum(h, [])
+                Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
+                Zk, Rk, Hk, Vk = ObservationMatrix(Ho, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
+                self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk, h)
+        
+        # self.mutex.release()
         # self.update_running = False
-        self.publish_viewpoints()
-        self.check_obs_model()
+        # self.publish_viewpoints()
+        # self.check_obs_model()
         self.publish_full_map()
 
 
@@ -354,6 +348,7 @@ class PoseGraphSLAM:
         self.viewpoints_pub.publish(viewpoints_list)
 
     def publish_odom_predict(self,msg):
+
         current_time = rospy.Time.from_sec(msg.header.stamp.secs + msg.header.stamp.nsecs * 1e-9)
         q = quaternion_from_euler(0, 0, self.xk[-1])
         

@@ -47,8 +47,8 @@ def compounding(a_x_b, b_x_c):
 
 ########################################################################
 
-def get_h(prev_pose, new_pose):
-        return compounding(pose_inversion(new_pose), prev_pose)
+def get_h(current_pose, previous_pose):
+        return compounding(pose_inversion(current_pose), previous_pose)
 
 
 ########################################################################
