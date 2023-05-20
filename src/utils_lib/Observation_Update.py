@@ -108,8 +108,8 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
 #================================================
 
 def Update(nXk, nPk, Zk, Rk, Hk, Vk,hk, Hp=0):
-    print("guesss displacment inside", hk)
-    print("Zk",Zk)
+    # print("guesss displacment inside", hk)
+    # print("Zk",Zk)
     # print("nPk: ",nPk.shape)
     # print('Zk : ', Zk.shape)
     # print('Rk : ', Rk.shape)

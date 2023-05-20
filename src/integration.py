@@ -227,11 +227,11 @@ class PoseGraphSLAM:
                 Zk, Rk, Hk, Vk = ObservationMatrix(Ho, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
                 self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk, h)
         
-        # self.mutex.release()
-        # self.update_running = False
-        # self.publish_viewpoints()
-        # self.check_obs_model()
-        self.publish_full_map()
+                # self.mutex.release()
+                # self.update_running = False
+                # self.publish_viewpoints()
+                # self.check_obs_model()
+                self.publish_full_map()
 
 
     ##################      Publishing   ##############################
@@ -239,6 +239,8 @@ class PoseGraphSLAM:
     #########################-_________________________________________________________________________________________________-##########################################
 
     def publish_full_map(self):
+        print('State vector: ',self.xk.shape)
+        print('Map: ', len(self.map))
         full_map = scans_to_map(self.xk, self.map)
         # print('map_shape: ', full_map)
 

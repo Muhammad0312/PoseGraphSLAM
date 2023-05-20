@@ -34,7 +34,7 @@ def scans_to_map(state_vector, map):
     # poses = [x1, x2, x3, x4]
     
     # convert from [x,y,z] to [[x,y,z]]
-    state_vector = [[state_vector[i], state_vector[i+1], -state_vector[i+2]] for i in range(0, len(state_vector), 3)]
+    state_vector = [[state_vector[i], state_vector[i+1], -state_vector[i+2]] for i in range(0, len(state_vector) - 3, 3)]
     
     compounded_scans = ToWorldFrame(state_vector, map)
 

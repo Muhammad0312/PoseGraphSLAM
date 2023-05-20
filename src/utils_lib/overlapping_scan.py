@@ -44,7 +44,7 @@ def OverlappingScans(state_vector, map):
 
         point_cloud_2 = compounded_scans[i]
         # Define a tolerance distance
-        tolerance = 0.3
+        tolerance = 0.05
 
         # Build a KDTree for each point cloud
         tree_1 = KDTree(point_cloud_1)
