@@ -4,6 +4,9 @@ from mpl_toolkits import mplot3d
 from scipy.spatial import KDTree
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
 from shapely.geometry import Polygon
+from sklearn.neighbors import NearestNeighbors
+
+
 '''
 pip install shapely
 pip install scipy
@@ -82,7 +85,7 @@ def OverlappingScans(state_vector, map):
         # ax1.set_zlabel('Z')
         # ax1.set_title('Original Point Cloud')
         # plt.show()
-    return H
+    return H, compounded_scans
 
 def OverlappingScansConvex(state_vector, map):
     compounded_scans = ToWorldFrame(state_vector, map)
@@ -121,27 +124,25 @@ def OverlappingScansConvex(state_vector, map):
     return H
 
 
-
-
 scan1 = []
 scan2 = []
 scan3 = []
 
-with open('scan1.txt', 'r') as f:
+with open('pose-graph-slam/src/overlapping thing/scan1.txt', 'r') as f:
     content = f.readlines()
     for line in content:
         coordinates = line.split()
         scan1.append([float(coordinates[0]), float(coordinates[1])])
 
 
-with open('scan2.txt', 'r') as f:
+with open('pose-graph-slam/src/overlapping thing/scan2.txt', 'r') as f:
     content = f.readlines()
     for line in content:
         coordinates = line.split()
         scan2.append([float(coordinates[0]), float(coordinates[1])])
 
 
-with open('scan3.txt', 'r') as f:
+with open('pose-graph-slam/src/overlapping thing/scan3.txt', 'r') as f:
     content = f.readlines()
     for line in content:
         coordinates = line.split()
@@ -158,6 +159,5 @@ P2 = [5.882918886136125416e-03, -7.026800482131475081e-03, -1.641024133333284230
 P3 = [2.883825026077073139e-01, -1.402247462826852198e-01, -9.072827003143387747e-01]
 state_vector = [P1, P2, P3]
 
-print(OverlappingScans(state_vector, Map))
+H, compounded_scans = OverlappingScans(state_vector, Map)
 # print(OverlappingScansConvex(state_vector, Map))
-
