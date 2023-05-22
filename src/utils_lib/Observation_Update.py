@@ -64,7 +64,7 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
     StateVector=np.array(StateVector)
     Hp = np.array(Hp)
     Zp = np.array(Zp)
-    Rp = 0.5*np.eye((Zp.shape)[0])
+    Rp = 0.01*np.eye((Zp.shape)[0])
     Zk = Zp
     Rk = Rp
     Vk = np.eye((Zp.shape)[0])
@@ -82,6 +82,7 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
         J = PoseInversionJacobian(CurrentViewpoint)
         J1J = J1 @ J
         Hk[r:r+3, index:index+3] = J2
+        # uncomment this below
         Hk[r:r+3, -6:-3] = J1J 
         Hk[r:r+3, -3: ] = J1J
 
@@ -102,7 +103,8 @@ def Update(nXk, nPk, Zk, Rk, Hk, Vk,hk, Hp=0):
     # print('Xk : ', nXk.shape)
 
     K_k = nPk @ Hk.T @ np.linalg.inv(Hk @ nPk @ Hk.T + Vk @ Rk @ Vk.T)
+    # print(K_k)
     X_k = nXk + K_k @ (Zk - hk)
-    P_k = (np.eye(nPk.shape[0]) - K_k @ Hk) @ nPk @(np.eye(nPk.shape[0]) - K_k @ Hk).T
+    P_k = (np.eye(nPk.shape[0]) - K_k @ Hk) @ nPk #@(np.eye(nPk.shape[0]) - K_k @ Hk).T
     
     return X_k, P_k

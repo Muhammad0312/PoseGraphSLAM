@@ -54,7 +54,7 @@ def find_closest_points(A_transformed, B):
     return distances, indices
 
 def icp(A, B, pose1, pose2, init_transform=None, max_iterations=20, tolerance=1e-3):
-
+    returned_transform = []
     '''Debugging Purposes'''
     x1 = np.copy(A[:,0])
     y1 = np.copy(A[:,1])
@@ -81,8 +81,7 @@ def icp(A, B, pose1, pose2, init_transform=None, max_iterations=20, tolerance=1e
                             [sin_theta, cos_theta, y],
                             [0, 0, 1]])
         # print('init icp transform: ',get_displacement_from_T(init_transform))
-    
-
+    returned_transform.append(init_transform)
     A = np.array([list(x) for x in zip(*A)])
     B = np.array([list(x) for x in zip(*B)])
 
@@ -106,6 +105,7 @@ def icp(A, B, pose1, pose2, init_transform=None, max_iterations=20, tolerance=1e
 
         T_optimal = ls_minimization(X, Y, W)
         dummy = T_optimal@dummy
+        returned_transform.append(dummy)
         # Update transformation
         transform = T_optimal
         A_transformed = transform @ A_transformed
@@ -113,8 +113,12 @@ def icp(A, B, pose1, pose2, init_transform=None, max_iterations=20, tolerance=1e
         single_error=np.sqrt(errors)
         if i > 0 and np.abs(errors[i] - errors[i-1]) < tolerance:
             break
-    final_transform = dummy
+    # final_transform = dummy
+    index_smallest_error = np.argmin(single_error)
+    final_transform =np.array(returned_transform[index_smallest_error])
 
+
+    #______________________     IMAGE SAVING __________________________________
     A_transformed = final_transform[:2, :2] @ A + final_transform[:2, 2].reshape(-1, 1)
 
     x3 = A_transformed[0, :]
@@ -126,9 +130,10 @@ def icp(A, B, pose1, pose2, init_transform=None, max_iterations=20, tolerance=1e
     ax2.scatter(x3, y3, c='red', s=1)
     ax2.scatter(x4, y4, c='green', s=1)
     ax2.set_title("Aligned scans")
-    plt.savefig('/home/mawais/catkin_ws/src/pose-graph-slam/src/saved_data/register_icp/image'+str(np.round(time.time(), 2))+'.png')
+    plt.savefig('/home/alamdar11/projects_ws/src/pose-graph-slam/src/saved_data/register_icp/image'+str(np.round(time.time(), 2))+'.png')
     plt.close()
-    '''======================================'''
+    #________________________________________________________________________________
+
     displacement = get_displacement_from_T(final_transform)
 
     return displacement, single_error[:i+1]

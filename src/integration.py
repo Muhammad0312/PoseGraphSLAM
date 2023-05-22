@@ -74,8 +74,8 @@ class PoseGraphSLAM:
         # Subscriber to get joint states
         self.js_sub = rospy.Subscriber("/turtlebot/joint_states", JointState, self.predict)
         # Odometry noise covariance
-        self.Qk = np.array([[0.5, 0],     
-                             [0, 0.5]])
+        self.Qk = np.array([[0.04, 0],     
+                             [0, 0.04]])
 
 
         # prediction related variables
@@ -88,8 +88,8 @@ class PoseGraphSLAM:
         self.left_wheel_received = False
 
         # scan related variables
-        self.dist_th = 0.2   # take scan if displacement is > 0.2m, 0.5
-        self.ang_th = 0.10 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees)
+        self.dist_th = 0.15   # take scan if displacement is > 0.2m, 0.5
+        self.ang_th = 0.13 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees)
 
         self.last_time = rospy.Time.now()
 
@@ -191,6 +191,7 @@ class PoseGraphSLAM:
                 # print('Ground truth state vector: ', self.gt_xk)
 
                 # Overlapping Scans
+                
                 Ho = OverlappingScans(self.xk[0:-3], self.map)
 
                 '''For debugging purposes'''
@@ -203,7 +204,7 @@ class PoseGraphSLAM:
                 
                 # for each matched pair
                 for j in Ho:
-                    # print('------------- mathcing started ---------')
+                    # print('------------- matching started ---------')
                     # print('scan index: ', j)
                     match_scan = self.map[j]
                     
@@ -218,30 +219,32 @@ class PoseGraphSLAM:
                     actual_displacement = get_h(curr_viewpoint_gt, matched_viewpoint_gt)
                     # P = J bla bla
                     zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint, guess_displacement)
-                    # zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint)
                     # zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint_gt, curr_viewpoint_gt)
 
                     
                     # Suppress scientific notations while displaying numbers
                     np.set_printoptions(suppress=True)
                     # print('===================================================')
-                    print('Ground truth state vector: ', self.gt_xk)
-                    print('State vector: ', self.xk)
-                    # print("Difference in states: ", self.gt_xk - self.xk[ :-3])
+                    # print('Ground truth state vector: ', self.gt_xk)
+                    # print('State vector: ', self.xk)
+                    # # print("Difference in states: ", self.gt_xk - self.xk[ :-3])
                     print('Actual displacement: ', np.round(actual_displacement, 6))
                     print('Expected result: ', np.round(guess_displacement, 6))
                     print('ICP: ', np.round(zr, 6))
+                    # print('Error in ICP: ', Rr)
                     
                     # Check if observation is close to the expected observation
                     angle_diff = abs(guess_displacement[-1]) - abs(zr[-1])
-                    x = [guess_displacement[0], zr[0]]
-                    y = [guess_displacement[1], zr[1]]
-                    if euclidean_distance(x, y) <= 0.03:# and angle_diff <= 0.01:
+                    x = [guess_displacement[0], guess_displacement[1]]
+                    y = [zr[0], zr[1]]
+                    # print('Difference: ', euclidean_distance(x, y))
+                    if euclidean_distance(x, y) <= 0.04: # and angle_diff <= 0.05:  #: 
                         Hp.append(j)
                         h.append(guess_displacement)
                         Z_matched.append(zr)
 
-                # print("Measurements being used: ", Hp)
+
+                print("Measurements being used: ", Hp)
                 h = sum(h, [])
                 Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
                 Zk, Rk, Hk, Vk = ObservationMatrix(Hp, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
@@ -252,15 +255,15 @@ class PoseGraphSLAM:
                 #     print('savingdata')
                 #     print('Number of gt poses: ', self.gt_xk.shape)
                 #     for i in range(len(self.map)):
-                #         filename = '/home/mawais/catkin_ws/src/pose-graph-slam/src/saved_data/scan' + str(i) + '.txt'
+                #         filename = '/home/alamdar11/projects_ws/src/pose-graph-slam/src/saved_data/scan' + str(i) + '.txt'
                 #         np.savetxt(filename, self.map[i])
-                #     np.savetxt('/home/mawais/catkin_ws/src/pose-graph-slam/src/saved_data/poses.txt', self.gt_xk)
+                #     np.savetxt('/home/alamdar11/projects_ws/src/pose-graph-slam/src/saved_data/poses.txt', self.gt_xk)
 
                 # self.update_running = False
-                # self.publish_viewpoints()
-                # self.check_obs_model()
-                # if len(self.map) == 12:
-                #     self.publish_full_map()
+        self.publish_viewpoints()
+        # self.check_obs_model()
+        # if len(self.map)%50 == 0:
+        self.publish_full_map()
 
 
     ##################      Publishing   ##############################

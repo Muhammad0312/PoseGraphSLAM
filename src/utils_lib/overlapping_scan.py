@@ -37,15 +37,20 @@ def OverlappingScans(state_vector, map):
     state_vector = [[state_vector[i], state_vector[i+1], state_vector[i+2]] for i in range(0, len(state_vector), 3)]
     compounded_scans = ToWorldFrame(state_vector, map)
     H = []
-    overlap_threshold = 75
+    overlap_threshold = 80
 
     point_cloud_1 = compounded_scans[-1]
+    start = 0
+    offset = 2
+    if len(compounded_scans) > offset:
+        start = len(compounded_scans) - offset
     
-    for i in range(0, len(compounded_scans) - 1):
+    for i in range( start, len(compounded_scans) - 1):
+        
 
         point_cloud_2 = compounded_scans[i]
         # Define a tolerance distance
-        tolerance = 0.1
+        tolerance = 0.13
 
         # Build a KDTree for each point cloud
         tree_1 = KDTree(point_cloud_1)
@@ -65,13 +70,14 @@ def OverlappingScans(state_vector, map):
         if (len(overlapping_points_1) / len(point_cloud_1))*100 >= overlap_threshold:
             H.append(i)
 
-            '''Visualization purposes'''
+            #______________________     IMAGE SAVING __________________________________
             fig = plt.figure(figsize=(10, 5))
             ax1 = fig.add_subplot(111)
             ax1.scatter(point_cloud_1[:,0], point_cloud_1[:,1], c='blue', s=1)
             ax1.scatter(point_cloud_2[:,0], point_cloud_2[:,1], c='red', s=1)
-            plt.savefig('/home/mawais/catkin_ws/src/pose-graph-slam/src/saved_data/overlapping_images/image'+str(np.round(time.time(), 2))+'.png')
+            plt.savefig('/home/alamdar11/projects_ws/src/pose-graph-slam/src/saved_data/overlapping_images/image'+str(np.round(time.time(), 2))+'.png')
             plt.close()
+            #_________________________________________________________________________
 
     return H
 
