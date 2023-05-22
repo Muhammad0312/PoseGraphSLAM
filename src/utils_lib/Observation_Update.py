@@ -64,13 +64,13 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
     StateVector=np.array(StateVector)
     Hp = np.array(Hp)
     Zp = np.array(Zp)
-    Rp =0.001*np.eye((Zp.shape)[0])
+    Rp = 0.5*np.eye((Zp.shape)[0])
     Zk = Zp
     Rk = Rp
     Vk = np.eye((Zp.shape)[0])
     Hk = np.zeros((Zp.shape[0], StateVector.shape[0]))
 
-    CurrentViewpoint = StateVector[-3:]
+    CurrentViewpoint = StateVector[-6: -3]
     CurrentViewpointInverted = PoseInversion(CurrentViewpoint)
     r = 0
     for index in Hp:

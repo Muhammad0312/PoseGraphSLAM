@@ -24,10 +24,15 @@ from utils_lib.register_ICP import icp
 from utils_lib.Observation_Update import*
 from utils_lib.scans_to_map import scans_to_map
 
+from icp_testing.icp import ICP, ToWorldFrame
+
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs.msg import LaserScan
 from sensor_msgs import point_cloud2
 import threading
+
+import time
+import matplotlib.pyplot as plt
 
 
 class PoseGraphSLAM:
@@ -50,9 +55,9 @@ class PoseGraphSLAM:
         self.gt_sub = rospy.Subscriber("/turtlebot/stonefish_simulator/ground_truth_odometry", Odometry, self.get_gt)
 
         # Pose initialization
-        self.xk = np.array([0.0, 0.0, 0.0])
+        self.xk = np.array([0.0, 0.5, 0.0])
         # Groundtruth state vector
-        self.gt_xk = np.array([0.0, 0.0, 0.0])
+        self.gt_xk = np.array([0.0, 0.5, 0.0])
 
         # initial covariance matrix
         self.Pk = np.array([[0.0, 0, 0],    
@@ -69,8 +74,8 @@ class PoseGraphSLAM:
         # Subscriber to get joint states
         self.js_sub = rospy.Subscriber("/turtlebot/joint_states", JointState, self.predict)
         # Odometry noise covariance
-        self.Qk = np.array([[0.005, 0],     
-                             [0, 0.005]])
+        self.Qk = np.array([[0.5, 0],     
+                             [0, 0.5]])
 
 
         # prediction related variables
@@ -83,8 +88,8 @@ class PoseGraphSLAM:
         self.left_wheel_received = False
 
         # scan related variables
-        self.dist_th = 0.03   # take scan if displacement is > 0.2m, 0.5
-        self.ang_th = 0.055 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees)
+        self.dist_th = 0.2   # take scan if displacement is > 0.2m, 0.5
+        self.ang_th = 0.10 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees)
 
         self.last_time = rospy.Time.now()
 
@@ -120,7 +125,7 @@ class PoseGraphSLAM:
                 right_lin_vel = self.right_wheel_velocity * self.wheel_radius
 
                 self.v = (left_lin_vel + right_lin_vel) / 2.0
-                self.w = (left_lin_vel-right_lin_vel) / self.wheel_base_distance
+                self.w = (left_lin_vel - right_lin_vel) / self.wheel_base_distance
             
                 #calculate dt
                 current_time = rospy.Time.from_sec(msg.header.stamp.secs + msg.header.stamp.nsecs * 1e-9)
@@ -136,15 +141,8 @@ class PoseGraphSLAM:
                                 [dt*self.wheel_radius/self.wheel_base_distance,    -dt*self.wheel_radius/self.wheel_base_distance]])
                 
                 F1k, F2k = self.get_F1k_F2k(Ak, Wk)
-                # print('========================')
-                # print('F1k: ', F1k.shape)
-                # print('Pk: ', self.Pk.shape)
-                # print('F1k.T: ', F1k.T.shape)
-                # print('F2k: ', F2k.shape)
-                # print('Qk: ', self.Qk.shape)
-                # print('F2k.T: ', F2k.T.shape)
+
                 self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
-                # print('Pk Updated')
 
                 # State updates x' = x + d * cos(theta) y' = y + d * sin(theta)
                 self.xk[-3] = self.xk[-3] + self.v * dt * np.cos(self.xk[-1])
@@ -185,22 +183,24 @@ class PoseGraphSLAM:
             with self.mutex:
                 # add new scan and pose
                 self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
-                self.map.append(np.array(self.scan))
+                self.map.append(self.scan)
 
                 # Store the actual viewpoint in the groundtruth state vector
                 self.gt_xk = np.hstack((self.gt_xk, self.gt_pose))
 
                 # print('Ground truth state vector: ', self.gt_xk)
 
-                # print('Xk inside scan: ',self.xk.shape)
-                # print('Pk inside scan: ',self.Pk.shape)
-                # print('Number of scans inside scan: ',len(self.map))
                 # Overlapping Scans
                 Ho = OverlappingScans(self.xk[0:-3], self.map)
-                # print('Num scans inside scan: ', len(self.map))
-                print('Overlap Ho inside scan: ', Ho)
+
+                '''For debugging purposes'''
+                # Ho = OverlappingScans(self.gt_xk, self.map)
+                print('Overlap Ho: ', Ho)
+
                 Z_matched=[]
                 h=[]
+                Hp = []
+                
                 # for each matched pair
                 for j in Ho:
                     # print('------------- mathcing started ---------')
@@ -217,28 +217,50 @@ class PoseGraphSLAM:
                     guess_displacement = get_h(curr_viewpoint, matched_viewpoint)
                     actual_displacement = get_h(curr_viewpoint_gt, matched_viewpoint_gt)
                     # P = J bla bla
-                    # zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint,guess_displacement)
-                    zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint)
+                    zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint, guess_displacement)
+                    # zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint)
+                    # zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint_gt, curr_viewpoint_gt)
+
                     
                     # Suppress scientific notations while displaying numbers
                     np.set_printoptions(suppress=True)
-                    print('===================================================')
+                    # print('===================================================')
+                    print('Ground truth state vector: ', self.gt_xk)
+                    print('State vector: ', self.xk)
+                    # print("Difference in states: ", self.gt_xk - self.xk[ :-3])
                     print('Actual displacement: ', np.round(actual_displacement, 6))
                     print('Expected result: ', np.round(guess_displacement, 6))
                     print('ICP: ', np.round(zr, 6))
                     
-                    h.append(guess_displacement)
-                    Z_matched.append(zr) 
+                    # Check if observation is close to the expected observation
+                    angle_diff = abs(guess_displacement[-1]) - abs(zr[-1])
+                    x = [guess_displacement[0], zr[0]]
+                    y = [guess_displacement[1], zr[1]]
+                    if euclidean_distance(x, y) <= 0.03:# and angle_diff <= 0.01:
+                        Hp.append(j)
+                        h.append(guess_displacement)
+                        Z_matched.append(zr)
+
+                # print("Measurements being used: ", Hp)
                 h = sum(h, [])
                 Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
-                Zk, Rk, Hk, Vk = ObservationMatrix(Ho, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
+                Zk, Rk, Hk, Vk = ObservationMatrix(Hp, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
                 self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk, h)
-        
-                # self.mutex.release()
+
+                # Save scan data along with groundtruth pose
+                # if len(self.map) == 20:
+                #     print('savingdata')
+                #     print('Number of gt poses: ', self.gt_xk.shape)
+                #     for i in range(len(self.map)):
+                #         filename = '/home/mawais/catkin_ws/src/pose-graph-slam/src/saved_data/scan' + str(i) + '.txt'
+                #         np.savetxt(filename, self.map[i])
+                #     np.savetxt('/home/mawais/catkin_ws/src/pose-graph-slam/src/saved_data/poses.txt', self.gt_xk)
+
                 # self.update_running = False
                 # self.publish_viewpoints()
                 # self.check_obs_model()
-                self.publish_full_map()
+                # if len(self.map) == 12:
+                #     self.publish_full_map()
 
 
     ##################      Publishing   ##############################
@@ -397,6 +419,7 @@ class PoseGraphSLAM:
 
         self.tf_br.sendTransform((self.xk[-3], self.xk[-2], 0.0), q, rospy.Time.now(), odom.child_frame_id, odom.header.frame_id)
 
+
     #______________________________________________________________________-##########################################
 
 if __name__ == '__main__':
@@ -406,9 +429,3 @@ if __name__ == '__main__':
     robot = PoseGraphSLAM()
 
     rospy.spin()
-
-    
-
-
-
-

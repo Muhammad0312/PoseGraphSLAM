@@ -85,7 +85,7 @@ def OverlappingScans(state_vector, map):
         # ax1.set_zlabel('Z')
         # ax1.set_title('Original Point Cloud')
         # plt.show()
-    return H, compounded_scans
+    return H
 
 def OverlappingScansConvex(state_vector, map):
     compounded_scans = ToWorldFrame(state_vector, map)

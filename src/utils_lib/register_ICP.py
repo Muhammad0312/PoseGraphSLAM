@@ -5,6 +5,8 @@ from scipy.spatial import cKDTree
 import data_trial_scans
 from math import atan2
 from numpy.linalg import inv
+from utils_lib.overlapping_scan import ToWorldFrame
+import time
 
 def get_displacement_from_T(T):
     x = T[0,2]
@@ -52,6 +54,20 @@ def find_closest_points(A_transformed, B):
     return distances, indices
 
 def icp(A, B, pose1, pose2, init_transform=None, max_iterations=20, tolerance=1e-3):
+
+    '''Debugging Purposes'''
+    x1 = np.copy(A[:,0])
+    y1 = np.copy(A[:,1])
+    x2 = np.copy(B[:,0])
+    y2 = np.copy(B[:,1])
+
+    fig = plt.figure(figsize=(15, 5))
+    ax1 = fig.add_subplot(121)
+    ax1.scatter(x1, y1, c='blue', s=1)
+    ax1.scatter(x2, y2, c='red', s=1)
+    ax1.set_title("Original Scans")
+
+    '''=============================================='''
     
     if init_transform is None: 
         init_transform=get_transformation_matrix(pose1, pose2)
@@ -98,6 +114,21 @@ def icp(A, B, pose1, pose2, init_transform=None, max_iterations=20, tolerance=1e
         if i > 0 and np.abs(errors[i] - errors[i-1]) < tolerance:
             break
     final_transform = dummy
+
+    A_transformed = final_transform[:2, :2] @ A + final_transform[:2, 2].reshape(-1, 1)
+
+    x3 = A_transformed[0, :]
+    y3 = A_transformed[1, :]
+    x4 = First_A_transformed[0, :]
+    y4 = First_A_transformed[1, :]
+    ax2 = fig.add_subplot(122)
+    ax2.scatter(B[0,:], B[1,:], c='blue', s=1)
+    ax2.scatter(x3, y3, c='red', s=1)
+    ax2.scatter(x4, y4, c='green', s=1)
+    ax2.set_title("Aligned scans")
+    plt.savefig('/home/mawais/catkin_ws/src/pose-graph-slam/src/saved_data/register_icp/image'+str(np.round(time.time(), 2))+'.png')
+    plt.close()
+    '''======================================'''
     displacement = get_displacement_from_T(final_transform)
 
     return displacement, single_error[:i+1]
