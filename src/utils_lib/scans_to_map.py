@@ -7,7 +7,7 @@ The sign of the angle has been changed from the pose vector
 def PointFeatureCompounding(point, pose):
     T = np.array([[np.cos(pose[2]), -np.sin(pose[2]), pose[0]],
                   [np.sin(pose[2]),  np.cos(pose[2]), pose[1]],
-                  [       0,                0,           1   ]])
+                  [       0,                0,          1   ]])
     
     P = np.array([[point[0]],
                   [point[1]],

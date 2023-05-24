@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt  
 import copy
 from scipy.spatial import cKDTree
-import data_trial_scans
 from math import atan2
 from numpy.linalg import inv
 from utils_lib.overlapping_scan import ToWorldFrame
@@ -53,7 +52,7 @@ def find_closest_points(A_transformed, B):
     distances, indices = tree.query(A_transformed[:2, :].T)
     return distances, indices
 
-def icp(A, B, pose1, pose2, init_transform=None, max_iterations=20, tolerance=1e-3):
+def icp(A, B, pose1, pose2, init_transform=None, max_iterations=100, tolerance=1e-4):
     returned_transform = []
     '''Debugging Purposes'''
     x1 = np.copy(A[:,0])
@@ -119,19 +118,19 @@ def icp(A, B, pose1, pose2, init_transform=None, max_iterations=20, tolerance=1e
 
 
     #______________________     IMAGE SAVING __________________________________
-    A_transformed = final_transform[:2, :2] @ A + final_transform[:2, 2].reshape(-1, 1)
+    # A_transformed = final_transform[:2, :2] @ A + final_transform[:2, 2].reshape(-1, 1)
 
-    x3 = A_transformed[0, :]
-    y3 = A_transformed[1, :]
-    x4 = First_A_transformed[0, :]
-    y4 = First_A_transformed[1, :]
-    ax2 = fig.add_subplot(122)
-    ax2.scatter(B[0,:], B[1,:], c='blue', s=1)
-    ax2.scatter(x3, y3, c='red', s=1)
-    ax2.scatter(x4, y4, c='green', s=1)
-    ax2.set_title("Aligned scans")
-    plt.savefig('/home/alamdar11/projects_ws/src/pose-graph-slam/src/saved_data/register_icp/image'+str(np.round(time.time(), 2))+'.png')
-    plt.close()
+    # x3 = A_transformed[0, :]
+    # y3 = A_transformed[1, :]
+    # x4 = First_A_transformed[0, :]
+    # y4 = First_A_transformed[1, :]
+    # ax2 = fig.add_subplot(122)
+    # ax2.scatter(B[0,:], B[1,:], c='blue', s=1)
+    # ax2.scatter(x3, y3, c='red', s=1)
+    # ax2.scatter(x4, y4, c='green', s=1)
+    # ax2.set_title("Aligned scans")
+    # plt.savefig('/home/alamdar11/projects_ws/src/pose-graph-slam/src/saved_data/register_icp/image'+str(np.round(time.time(), 2))+'.png')
+    # plt.close()
     #________________________________________________________________________________
 
     displacement = get_displacement_from_T(final_transform)

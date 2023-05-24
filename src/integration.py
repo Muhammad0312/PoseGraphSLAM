@@ -4,7 +4,7 @@ import numpy as np
 import rospy, math
 from nav_msgs.msg import Odometry 
 from std_msgs.msg import Float64, Float32MultiArray
-from sensor_msgs.msg import JointState
+from sensor_msgs.msg import JointState,Imu
 from tf.broadcaster import TransformBroadcaster
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 import math
@@ -21,10 +21,10 @@ from utils_lib.add_new_pose import AddNewPose
 from utils_lib.get_scan import get_scan  
 from utils_lib.overlapping_scan import OverlappingScans
 from utils_lib.register_ICP import icp
+from utils_lib.IMU import calculate_heading
 from utils_lib.Observation_Update import*
 from utils_lib.scans_to_map import scans_to_map
 
-from icp_testing.icp import ICP, ToWorldFrame
 
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs.msg import LaserScan
@@ -38,6 +38,12 @@ import matplotlib.pyplot as plt
 class PoseGraphSLAM:
     def __init__(self) -> None:
 
+        # scan related variables
+        self.dist_th = 0.1  # take scan if displacement is > 0.2m, 0.5
+        self.ang_th = 0.1 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees)
+        self.offset = 5  # how many past scans used for overlap
+
+
         self.mutex = threading.Lock()
         # robot constants
         self.wheel_radius = 0.035
@@ -48,21 +54,25 @@ class PoseGraphSLAM:
         self.map = []  # = [s1, s2, s3, s4]
         # Store scan as soon as it is available
         self.scan = []
+        self.imu_angle=0
+        self.imu_angle_list=[0]
+
 
         # Store groundtruth pose
         self.gt_pose = np.zeros(3)
         # Subscriber to groundtruth
         self.gt_sub = rospy.Subscriber("/turtlebot/stonefish_simulator/ground_truth_odometry", Odometry, self.get_gt)
+        self.IMU = rospy.Subscriber("/turtlebot/kobuki/sensors/imu",Imu,self.calc_heading)
 
         # Pose initialization
-        self.xk = np.array([0.0, 0.5, 0.0])
+        self.xk = np.array([0.0, 0.0, 0.0])
         # Groundtruth state vector
-        self.gt_xk = np.array([0.0, 0.5, 0.0])
+        self.gt_xk = np.array([0.0, 0.0, 0.0])
 
         # initial covariance matrix
-        self.Pk = np.array([[0.0, 0, 0],    
-                            [0, 0.0, 0],
-                            [0, 0, 0.0]])   
+        self.Pk = np.array([[0.04, 0, 0],    
+                            [0, 0.04, 0],
+                            [0, 0, 0.05]])   
         
         # Subscriber to lidar
         self.scan_sub = rospy.Subscriber("/turtlebot/kobuki/sensors/rplidar", LaserScan, self.scan_available)
@@ -87,9 +97,7 @@ class PoseGraphSLAM:
         self.right_wheel_velocity = 0.0
         self.left_wheel_received = False
 
-        # scan related variables
-        self.dist_th = 0.15   # take scan if displacement is > 0.2m, 0.5
-        self.ang_th = 0.13 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees)
+        
 
         self.last_time = rospy.Time.now()
 
@@ -143,6 +151,7 @@ class PoseGraphSLAM:
                 F1k, F2k = self.get_F1k_F2k(Ak, Wk)
 
                 self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
+                # print(" self.Pk", self.Pk)
 
                 # State updates x' = x + d * cos(theta) y' = y + d * sin(theta)
                 self.xk[-3] = self.xk[-3] + self.v * dt * np.cos(self.xk[-1])
@@ -173,6 +182,8 @@ class PoseGraphSLAM:
 
     #______________________    Update  ________________________________________________________________
     
+    def calc_heading(self,msg):
+        self.imu_angle= calculate_heading(msg)
 
     def scan_available(self,scan_msg):
         self.scan = get_scan(scan_msg)
@@ -185,6 +196,8 @@ class PoseGraphSLAM:
                 self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
                 self.map.append(self.scan)
 
+                self.imu_angle_list.append(self.imu_angle)
+
                 # Store the actual viewpoint in the groundtruth state vector
                 self.gt_xk = np.hstack((self.gt_xk, self.gt_pose))
 
@@ -192,7 +205,7 @@ class PoseGraphSLAM:
 
                 # Overlapping Scans
                 
-                Ho = OverlappingScans(self.xk[0:-3], self.map)
+                Ho = OverlappingScans(self.xk[0:-3], self.map, self.offset)
 
                 '''For debugging purposes'''
                 # Ho = OverlappingScans(self.gt_xk, self.map)
@@ -228,27 +241,35 @@ class PoseGraphSLAM:
                     # print('Ground truth state vector: ', self.gt_xk)
                     # print('State vector: ', self.xk)
                     # # print("Difference in states: ", self.gt_xk - self.xk[ :-3])
+
                     print('Actual displacement: ', np.round(actual_displacement, 6))
                     print('Expected result: ', np.round(guess_displacement, 6))
-                    print('ICP: ', np.round(zr, 6))
+                    print('ICP before: ', np.round(zr, 6))
+                    zr[-1] = -(self.imu_angle_list[-1] - self.imu_angle_list[j])
+                    print ("self.imu_angle_list[-1], self.imu_angle_list[j]",self.imu_angle_list[-1],self.imu_angle_list[j])
+                    print('ICP after: ', np.round(zr, 6))
                     # print('Error in ICP: ', Rr)
-                    
+                    # angle = None
+
+
                     # Check if observation is close to the expected observation
                     angle_diff = abs(guess_displacement[-1]) - abs(zr[-1])
                     x = [guess_displacement[0], guess_displacement[1]]
                     y = [zr[0], zr[1]]
                     # print('Difference: ', euclidean_distance(x, y))
-                    if euclidean_distance(x, y) <= 0.04: # and angle_diff <= 0.05:  #: 
+                    if euclidean_distance(x, y) <= 0.1: # and angle_diff <= 0.05:  #: 
                         Hp.append(j)
                         h.append(guess_displacement)
                         Z_matched.append(zr)
 
 
-                print("Measurements being used: ", Hp)
-                h = sum(h, [])
-                Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
-                Zk, Rk, Hk, Vk = ObservationMatrix(Hp, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
-                self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk, h)
+                    # print("Measurements being used: ", Hp)
+                    h = sum(h, [])
+                    Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
+                    Zk, Rk, Hk, Vk = ObservationMatrix(Hp, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
+                    self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk, h)
+                    # print("self.xk",self.xk)
+                    # print("self.gt_xk",self.gt_xk)
 
                 # Save scan data along with groundtruth pose
                 # if len(self.map) == 20:
