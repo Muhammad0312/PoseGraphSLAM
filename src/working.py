@@ -309,7 +309,7 @@ class PoseGraphSLAM:
                 # print('Ground truth state vector: ', self.gt_xk)
 
                 # Overlapping Scans
-                offset = 3
+                offset = 4
                 Ho = OverlappingScans(self.xk, self.map, offset)
 
                 '''For debugging purposes'''

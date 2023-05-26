@@ -55,7 +55,6 @@ def OverlappingScans(state_vector, map,offset):
         # Build a KDTree for each point cloud
 
         #print the shape of the point cloud
-        print('shape of point cloud 1:',point_cloud_1.shape)
         tree_1 = KDTree(point_cloud_1)
         tree_2 = KDTree(point_cloud_2)
 

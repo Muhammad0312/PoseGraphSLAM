@@ -1,7 +1,6 @@
 import numpy as np
 
 def AddNewPose(x, P):
-    print('add new pose ')
     x = np.array(x).reshape(len(x),1)
     n = x.shape[0] + 3
     P_new = np.zeros((P.shape[0], P.shape[0]))
