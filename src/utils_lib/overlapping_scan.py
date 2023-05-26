@@ -47,9 +47,7 @@ def OverlappingScans(state_vector, map,offset):
     if len(compounded_scans) > offset:
         start = len(compounded_scans) - offset
     
-    for i in range( start, start+1):
-        
-
+    for i in range( start, len(map) - 1):
         point_cloud_2 = compounded_scans[i]
         # Define a tolerance distance
         tolerance = 0.13
