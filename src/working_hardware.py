@@ -376,8 +376,8 @@ class PoseGraphSLAM:
             # self.update_running = False
             self.control_num += 1
         self.mutex.release()
-        self.js_sub = rospy.Subscriber("/kobuki/joint_states", JointState, self.predict)
-        self.subImu = rospy.Subscriber('/kobuki/sensors/imu', Imu, self.imu_callback)
+        self.js_sub = rospy.Subscriber("/turtlebot/joint_states", JointState, self.predict)
+        self.subImu = rospy.Subscriber('/turtlebot/kobuki/sensors/imu', Imu, self.imu_callback)
             
 
     def new_observationHk(self, scan_index, current_viewpoint, matched_viewpoint):
