@@ -4,11 +4,7 @@ import numpy as np
 import rospy, math
 from nav_msgs.msg import Odometry 
 from std_msgs.msg import Float64, Float32MultiArray
-<<<<<<< Updated upstream
-from sensor_msgs.msg import JointState,Imu
-=======
 from sensor_msgs.msg import JointState, Imu
->>>>>>> Stashed changes
 from tf.broadcaster import TransformBroadcaster
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 import math
@@ -25,14 +21,10 @@ from utils_lib.add_new_pose import AddNewPose
 from utils_lib.get_scan import get_scan  
 from utils_lib.overlapping_scan import OverlappingScans
 from utils_lib.register_ICP import icp
-from utils_lib.IMU import calculate_heading
 from utils_lib.Observation_Update import*
 from utils_lib.scans_to_map import scans_to_map
 
-<<<<<<< Updated upstream
-=======
 from icp_testing.icp import ICP, ScanToWorldFrame
->>>>>>> Stashed changes
 
 import sys
 from sensor_msgs.msg import PointCloud2
@@ -46,12 +38,9 @@ import matplotlib.pyplot as plt
 
 class PoseGraphSLAM:
     def __init__(self) -> None:
-
-        # scan related variables
-        self.dist_th = 0.1  # take scan if displacement is > 0.2m, 0.5
-        self.ang_th = 0.1 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees)
-        self.offset = 5  # how many past scans used for overlap
-
+        # Suppress scientific notations while displaying numbers
+        np.set_printoptions(suppress=True)
+        self.previous = time.time()
 
         self.mutex = threading.Lock()
         # robot constants
@@ -63,27 +52,10 @@ class PoseGraphSLAM:
         self.map = []  # = [s1, s2, s3, s4]
         # Store scan as soon as it is available
         self.scan = []
-        self.imu_angle=0
-        self.imu_angle_list=[0]
-
 
         # Store groundtruth pose
         self.gt_pose = np.zeros(3)
         # Subscriber to groundtruth
-<<<<<<< Updated upstream
-        self.gt_sub = rospy.Subscriber("/turtlebot/stonefish_simulator/ground_truth_odometry", Odometry, self.get_gt)
-        self.IMU = rospy.Subscriber("/turtlebot/kobuki/sensors/imu",Imu,self.calc_heading)
-
-        # Pose initialization
-        self.xk = np.array([0.0, 0.0, 0.0])
-        # Groundtruth state vector
-        self.gt_xk = np.array([0.0, 0.0, 0.0])
-
-        # initial covariance matrix
-        self.Pk = np.array([[0.04, 0, 0],    
-                            [0, 0.04, 0],
-                            [0, 0, 0.05]])   
-=======
         # self.gt_sub = rospy.Subscriber("/turtlebot/stonefish_simulator/ground_truth_odometry", Odometry, self.get_gt)
         # self.gt_sub = rospy.Subscriber("/kobuki/sensors/virtual_odom_sensor", Odometry, self.get_gt)
 
@@ -104,15 +76,16 @@ class PoseGraphSLAM:
         self.Pk = np.array([[0.1, 0, 0],    
                             [0, 0.1, 0],
                             [0, 0, 0.1]])   
->>>>>>> Stashed changes
         
         # Subscriber to lidar
+        self.scan_sub = rospy.Subscriber("/kobuki/sensors/rplidar", LaserScan, self.scan_available)
 
         # Add new pose to keep predicting
         self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
 
         self.tf_br = TransformBroadcaster()
         # Subscriber to get joint states
+        self.js_sub = rospy.Subscriber("/kobuki/joint_states", JointState, self.predict)
         # Odometry noise covariance
         self.Qk = np.array([[0.0001, 0],     
                              [0, 0.0001]])
@@ -126,7 +99,6 @@ class PoseGraphSLAM:
         # define the covariance matrix of the compass
         self.compass_Rk = np.diag([0.157]) 
 
-
         # prediction related variables
         self.lin_vel = 0.0
         self.ang_vel = 0.0
@@ -136,13 +108,9 @@ class PoseGraphSLAM:
         self.right_wheel_velocity = 0.0
         self.left_wheel_received = False
 
-<<<<<<< Updated upstream
-        
-=======
         # scan related variables
         self.dist_th = 0.2#05   # take scan if displacement is > 0.2m, 0.5
         self.ang_th = 5000#0.05 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees)
->>>>>>> Stashed changes
 
         self.last_time = rospy.Time.now()
 
@@ -159,20 +127,10 @@ class PoseGraphSLAM:
         self.full_map_pub = rospy.Publisher('/slam/map', PointCloud2, queue_size=10)
 
         # create a subscriber to get the scan
-        self.js_sub = rospy.Subscriber("/kobuki/joint_states", JointState, self.predict)
-        self.subImu = rospy.Subscriber('/kobuki/sensors/imu', Imu, self.imu_callback)
         
-        self.scan_sub = rospy.Subscriber("/kobuki/sensors/rplidar", LaserScan, self.scan_available)
     
 
-
-
-
-
-
-
-
-
+        self.subImu = rospy.Subscriber('/kobuki/sensors/imu', Imu, self.imu_callback)
 
     def wrap_angle(self, angle):
         """this function wraps the angle between -pi and pi
@@ -185,11 +143,6 @@ class PoseGraphSLAM:
         """
         return (angle + ( 2.0 * np.pi * np.floor( ( np.pi - angle ) / ( 2.0 * np.pi ) ) ) )
 
-
-
-
-
-
     def imu_callback(self, msg):
         """ imu_callback is a callback function that is called when a new IMU message comes in
 
@@ -200,15 +153,12 @@ class PoseGraphSLAM:
         :rtype: None
         """
         # with self.mutex:t
-        # self.mutex.acquire()
-
-
+        self.mutex.acquire()
         # convert the orientation message received from quaternion to euler
         quaternion = (msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w)
 
         # convert the orientation message received from quaternion to euler
         _, _ , yaw_measurement = euler_from_quaternion(quaternion)
-
 
         #create a row vector of zeros of size 1 x 3*num_poses
         Hk = np.zeros((1, len(self.xk)))
@@ -216,6 +166,8 @@ class PoseGraphSLAM:
         #replace the last element of the row vector with 1
         Hk[0, -1] = 1
 
+        #multiply the row vector with the state vector to get the observation
+        # predicted_compass_meas = Hk @ self.xk + self.compass_Vk
 
         predicted_compass_meas = self.xk[-1]
 
@@ -239,25 +191,11 @@ class PoseGraphSLAM:
         #update the covariance matrix
         self.Pk = (I - K @ Hk) @ self.Pk @ (I - K @ Hk).T
 
+        print('heading updated')
         #release the mutex
-        # self.mutex.release()
+        self.mutex.release()
 
         pass
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     #_______________________   Predictions __________________________________________________________________
 
     def State_model (self,msg):
@@ -294,7 +232,6 @@ class PoseGraphSLAM:
                 F1k, F2k = self.get_F1k_F2k(Ak, Wk)
 
                 self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
-                # print(" self.Pk", self.Pk)
 
                 # State updates x' = x + d * cos(theta) y' = y + d * sin(theta)
                 self.xk[-3] = self.xk[-3] + self.v * dt * np.cos(self.xk[-1])
@@ -302,9 +239,10 @@ class PoseGraphSLAM:
                 self.xk[-1] = self.xk[-1] + self.w * dt
 
                 self.left_wheel_received = False
-        
 
-
+                #print the shape of self.xk and self.Pk
+                print('self.xk.shape: ', self.xk.shape)
+                print('self.Pk.shape: ', self.Pk.shape)
 
     
     def get_F1k_F2k(self, Ak, Wk):
@@ -317,38 +255,31 @@ class PoseGraphSLAM:
         F2k[-3:] = Wk
 
         return F1k, F2k
-    
 
     def predict (self,msg):
         # Use mutex to prevent different subscriber from using the same resource simultaneously
         # with self.mutex:
-        # self.mutex.acquire()
+        self.mutex.acquire()
         self.State_model(msg) 
         self.publish_odom_predict(msg)
-        # self.mutex.release()
+        self.mutex.release()
 
     #______________________    Update  ________________________________________________________________
     
-    def calc_heading(self,msg):
-        self.imu_angle= calculate_heading(msg)
 
     def scan_available(self,scan_msg):
 
 
-        #unregister the subscriber
+        #unsubscribe from the scan topic
         self.subImu.unregister()
-        #unsubscribe from the joint states
         self.js_sub.unregister()
-        # self.mutex.acquire()
+        self.mutex.acquire()
 
         self.scan = get_scan(scan_msg)
-<<<<<<< Updated upstream
-=======
 
         #print the shape from self.scan
         # print('scan shape from get scan: ', self.scan.shape)
 
->>>>>>> Stashed changes
         if len(self.map) == 0:
             #TODO: convert the scan to the world frame using the robot's pose
             # at which the scan was taken
@@ -357,17 +288,8 @@ class PoseGraphSLAM:
             print('scan to world shape: ', self.scan.shape)
             self.map.append(self.scan)
         
-        if check_distance_bw_scans(self.xk, self.dist_th, self.ang_th):
-<<<<<<< Updated upstream
-            with self.mutex:
-                # add new scan and pose
-                self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
-                self.map.append(self.scan)
-
-                self.imu_angle_list.append(self.imu_angle)
-
-=======
-        # if self.control_num == 4:
+        # if check_distance_bw_scans(self.xk, self.dist_th, self.ang_th):
+        if self.control_num == 4:
             # with self.mutex:   
             if True:    
                 print('Entering Update')  
@@ -392,22 +314,14 @@ class PoseGraphSLAM:
                 #print the length of map and the state vector
                 print('map length: ', len(self.map))
                 print('xk length: ', len(self.xk))
->>>>>>> Stashed changes
                 # Store the actual viewpoint in the groundtruth state vector
                 # self.gt_xk = np.hstack((self.gt_xk, self.gt_pose))
 
                 # print('Ground truth state vector: ', self.gt_xk)
 
                 # Overlapping Scans
-<<<<<<< Updated upstream
-                
-                Ho = OverlappingScans(self.xk[0:-3], self.map, self.offset)
-=======
                 offset = 2
                 Ho = OverlappingScans(self.xk, self.map, offset)
->>>>>>> Stashed changes
-
-
                 #TODO: check overlap. and once it returns true, we update
 
                 '''For debugging purposes'''
@@ -424,7 +338,7 @@ class PoseGraphSLAM:
                     # print('scan index: ', j)
                     match_scan = self.map[j]
                     
-                    curr_viewpoint = self.xk[-6:-3]
+                    curr_viewpoint = self.xk[-3:]
                     matched_viewpoint = self.xk[j*3: 3*j+3]
 
                     # curr_viewpoint_gt = self.gt_xk[-3: ]
@@ -432,16 +346,6 @@ class PoseGraphSLAM:
 
                     # Obervation Model
                     guess_displacement = get_h(curr_viewpoint, matched_viewpoint)
-<<<<<<< Updated upstream
-                    actual_displacement = get_h(curr_viewpoint_gt, matched_viewpoint_gt)
-                    # P = J bla bla
-                    zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint, guess_displacement)
-                    # zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint_gt, curr_viewpoint_gt)
-
-                    
-                    # Suppress scientific notations while displaying numbers
-                    np.set_printoptions(suppress=True)
-=======
                     # actual_displacement = get_h(curr_viewpoint_gt, matched_viewpoint_gt)
 
                     # if offset == 2:
@@ -461,58 +365,15 @@ class PoseGraphSLAM:
 
                     innovation = zk - guess_displacement
                     
->>>>>>> Stashed changes
                     # print('===================================================')
                     # print('Ground truth state vector: ', self.gt_xk)
                     # print('State vector: ', self.xk)
-                    # # print("Difference in states: ", self.gt_xk - self.xk[ :-3])
-
-                    print('Actual displacement: ', np.round(actual_displacement, 6))
-                    print('Expected result: ', np.round(guess_displacement, 6))
-                    print('ICP before: ', np.round(zr, 6))
-                    zr[-1] = -(self.imu_angle_list[-1] - self.imu_angle_list[j])
-                    print ("self.imu_angle_list[-1], self.imu_angle_list[j]",self.imu_angle_list[-1],self.imu_angle_list[j])
-                    print('ICP after: ', np.round(zr, 6))
-                    # print('Error in ICP: ', Rr)
-                    # angle = None
-
-
+                    # print('Actual displacement: ', np.round(actual_displacement, 6))
+                    # print('Expected result:     ', np.round(guess_displacement, 6))
+                    # print('ICP:                 ', np.round(zr, 6))
+                    
                     # Check if observation is close to the expected observation
-<<<<<<< Updated upstream
-                    angle_diff = abs(guess_displacement[-1]) - abs(zr[-1])
-                    x = [guess_displacement[0], guess_displacement[1]]
-                    y = [zr[0], zr[1]]
-                    # print('Difference: ', euclidean_distance(x, y))
-                    if euclidean_distance(x, y) <= 0.1: # and angle_diff <= 0.05:  #: 
-                        Hp.append(j)
-                        h.append(guess_displacement)
-                        Z_matched.append(zr)
-
-
-                    # print("Measurements being used: ", Hp)
-                    h = sum(h, [])
-                    Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
-                    Zk, Rk, Hk, Vk = ObservationMatrix(Hp, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
-                    self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk, h)
-                    # print("self.xk",self.xk)
-                    # print("self.gt_xk",self.gt_xk)
-
-                # Save scan data along with groundtruth pose
-                # if len(self.map) == 20:
-                #     print('savingdata')
-                #     print('Number of gt poses: ', self.gt_xk.shape)
-                #     for i in range(len(self.map)):
-                #         filename = '/home/alamdar11/projects_ws/src/pose-graph-slam/src/saved_data/scan' + str(i) + '.txt'
-                #         np.savetxt(filename, self.map[i])
-                #     np.savetxt('/home/alamdar11/projects_ws/src/pose-graph-slam/src/saved_data/poses.txt', self.gt_xk)
-
-                # self.update_running = False
-        self.publish_viewpoints()
-        # self.check_obs_model()
-        # if len(self.map)%50 == 0:
-        self.publish_full_map()
-=======
-                    # angle_diff = abs(guess_displacement[-1] - zk[-1])
+                    # # angle_diff = abs(guess_displacement[-1] - zr[-1])
                     # x = [guess_displacement[0], guess_displacement[1]]
                     # y = [zk[0], zk[1]]
 
@@ -521,7 +382,7 @@ class PoseGraphSLAM:
                     # compute the mahalanobis distance D
                     D = innovation.T @ np.linalg.inv(S) @ innovation
 
-                    # check if the mahalanobis distance is within the threshold
+                    #check if the mahalanobis distance is within the threshold
                     if np.sqrt(D) <= 0.3:
                     # print('Difference: ', euclidean_distance(x, y))
                     # if euclidean_distance(x, y) <= 0.3:# and angle_diff <= 0.05:  #: 
@@ -563,18 +424,17 @@ class PoseGraphSLAM:
             
             # self.check_obs_model()
             # if len(self.map)%5 == 0:
->>>>>>> Stashed changes
 
-            # self.control_num = 0
+            self.control_num = 0
 
-        # else:
-        #     # print('No new scan data received')
-        #     # self.update_running = False
-        #     self.control_num += 1
-        # self.mutex.release()
+        else:
+            # print('No new scan data received')
+            # self.update_running = False
+            self.control_num += 1
+        self.mutex.release()
         self.js_sub = rospy.Subscriber("/kobuki/joint_states", JointState, self.predict)
         self.subImu = rospy.Subscriber('/kobuki/sensors/imu', Imu, self.imu_callback)
-  
+            
 
 # ******************JOSEPH FORMULA******************
     def new_observationHk(self, scan_index, current_viewpoint, matched_viewpoint):
@@ -606,15 +466,6 @@ class PoseGraphSLAM:
     def update_slam(self, zk, Hk, Rk, Vk, displacement_guess):
         """ this is the update step of the EKF SLAM algorithm
 
-<<<<<<< Updated upstream
-    #########################-_________________________________________________________________________________________________-##########################################
-
-    def get_gt(self, msg):
-        euler = euler_from_quaternion([msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])
-        self.gt_pose[0] = msg.pose.pose.position.x
-        self.gt_pose[1] = msg.pose.pose.position.y
-        self.gt_pose[2] = euler[-1]
-=======
         :param zk: the observation vector
         :type zk: numpy array
         :param Hk: the observation matrix
@@ -657,7 +508,6 @@ class PoseGraphSLAM:
     # ******************JOSEPH FORMULA******************
 
     ##################      Publishing   ##############################
->>>>>>> Stashed changes
 
     # def get_gt(self, msg):
     #     euler = euler_from_quaternion([msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])
@@ -682,8 +532,6 @@ class PoseGraphSLAM:
 
         self.full_map_pub.publish(point_cloud_msg)
 
-
-
     def check_obs_model(self):
         ref_list = []
         h_list = []
@@ -693,10 +541,6 @@ class PoseGraphSLAM:
             next_pose = self.xk[i+3:i+6]
             # x, y, theta
             h = get_h(ref_pose, next_pose)
-            # print('------------------')
-            # print('ref pose: ', ref_pose)
-            # print('next_pose: ', next_pose)
-            # print('h: ', h)
 
             ref_list.append(ref_pose)
             h_list.append(h)

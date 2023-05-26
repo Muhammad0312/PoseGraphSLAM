@@ -34,10 +34,15 @@ def ToWorldFrame(state_vector, map):
 
 def OverlappingScans(state_vector, map,offset):
     # convert from [x,y,z] to [[x,y,z]]
-    state_vector = [[state_vector[i], state_vector[i+1], state_vector[i+2]] for i in range(0, len(state_vector), 3)]
-    compounded_scans = ToWorldFrame(state_vector, map)
+    # state_vector = [[state_vector[i], state_vector[i+1], state_vector[i+2]] for i in range(0, len(state_vector), 3)]
+    # compounded_scans = ToWorldFrame(state_vector, map)
     H = []
+<<<<<<< Updated upstream
     overlap_threshold = 50
+=======
+    overlap_threshold = 80
+    compounded_scans = map
+>>>>>>> Stashed changes
 
     point_cloud_1 = compounded_scans[-1]
     start = 0
@@ -50,9 +55,16 @@ def OverlappingScans(state_vector, map,offset):
 
         point_cloud_2 = compounded_scans[i]
         # Define a tolerance distance
+<<<<<<< Updated upstream
         tolerance = 0.13
+=======
+        tolerance = 0.1
+>>>>>>> Stashed changes
 
         # Build a KDTree for each point cloud
+
+        #print the shape of the point cloud
+        print('shape of point cloud 1:',point_cloud_1.shape)
         tree_1 = KDTree(point_cloud_1)
         tree_2 = KDTree(point_cloud_2)
 

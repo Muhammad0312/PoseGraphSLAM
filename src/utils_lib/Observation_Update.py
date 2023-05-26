@@ -64,7 +64,19 @@ def ObservationMatrix(Hp, StateVector, Zp, Rp):
     StateVector=np.array(StateVector)
     Hp = np.array(Hp)
     Zp = np.array(Zp)
+<<<<<<< Updated upstream
     Rp = 0.1*np.eye((Zp.shape)[0])
+=======
+    Rp = np.eye((Zp.shape)[0])
+    sensor_noise = np.array([[0.2, 0, 0],
+                            [0, 0.2, 0],
+                            [0, 0, 0.2]])
+    
+    for i in range(0, len(Rp), 3):
+        Rp[i:i+3, i:i+3] = sensor_noise
+
+    
+>>>>>>> Stashed changes
     Zk = Zp
     Rk = Rp
     Vk = np.eye((Zp.shape)[0])

@@ -48,7 +48,32 @@ def compounding(a_x_b, b_x_c):
 ########################################################################
 
 def get_h(current_pose, previous_pose):
-        return compounding(pose_inversion(current_pose), previous_pose)
+        
+
+        #print the shape of previous_pose and current_pose
+        # print("previous_pose",previous_pose)
+        # print("current_pose",current_pose)
+        x1 = current_pose[0]
+        y1 = current_pose[1]
+        theta1 = current_pose[2]
+
+        x2 = previous_pose[0]
+        y2 = previous_pose[1]
+        theta2 = previous_pose[2]
+
+        a = (-x1* np.cos(theta1)) - (y1*np.sin(theta1)) + (x2*np.cos(theta1) + y2*np.sin(theta1))
+        b = (x1*np.sin(theta1)) - (y1*np.cos(theta1)) - (x2*np.sin(theta1)) + (y2*np.cos(theta1))
+        c = -theta1 + theta2
+
+        h = np.array([a,b,c])
+
+
+        return h
+
+    
+        # #TODO: use direct method to compute displacement guess
+        # #Direct inversion for displacement guess
+        # return compounding(pose_inversion(current_pose), previous_pose)
 
 
 ########################################################################
