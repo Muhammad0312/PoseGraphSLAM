@@ -17,15 +17,15 @@
     <!-- Namespace with robot name -->
     <group ns="$(arg robot_name)">
         <!-- Run Simulator -->
-        <node name="stonefish_simulator" pkg="stonefish_ros" type="parsed_simulator" 
+        <!--<node name="stonefish_simulator" pkg="stonefish_ros" type="parsed_simulator" 
             args="$(arg simulation_data) $(arg scenario_description) $(arg simulation_rate) $(arg graphics_resolution) $(arg graphics_quality)" output="screen">
             <param name="robot_name" value="$(arg robot_name)"/>
             <remap from="swiftpro/joint_states" to="joint_states"/>
-        </node>
+        </node>-->
 
         <!-- Load robot description -->
-        <param name="robot_description" command="$(find xacro)/xacro '$(find kobuki_description)/urdf/kobuki_standalone.urdf.xacro'" />
-        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>
+        <!--<param name="robot_description" command="$(find xacro)/xacro '$(find kobuki_description)/urdf/kobuki_standalone.urdf.xacro'" />
+        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>-->
         
         <!-- RVIZ -->
         <node pkg="rviz" type="rviz" name="rviz" args="-d $(find pose-graph-slam)/config/finalOdom.rviz"/>

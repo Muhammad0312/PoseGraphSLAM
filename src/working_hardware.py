@@ -200,47 +200,36 @@ class PoseGraphSLAM:
 
         if msg.name[0] == self.wheel_name_left:
             self.left_wheel_velocity = msg.velocity[0]
-            self.left_wheel_received = True
-            return
+            self.right_wheel_velocity = msg.velocity[1]
+
+            # Do calculations
+            left_lin_vel = self.left_wheel_velocity * self.wheel_radius
+            right_lin_vel = self.right_wheel_velocity * self.wheel_radius
+
+            self.v = (left_lin_vel + right_lin_vel) / 2.0
+            self.w = (left_lin_vel - right_lin_vel) / self.wheel_base_distance
         
-        elif msg.name[0] == self.wheel_name_right:
-            self.right_wheel_velocity = msg.velocity[0]
+            #calculate dt
+            current_time = rospy.Time.from_sec(msg.header.stamp.secs + msg.header.stamp.nsecs * 1e-9)
+            dt = (current_time - self.last_time).to_sec()
+            self.last_time = current_time
 
-            if self.left_wheel_received:
-                # Do calculations
-                left_lin_vel = self.left_wheel_velocity * self.wheel_radius
-                right_lin_vel = self.right_wheel_velocity * self.wheel_radius
+            Ak = np.array([[1, 0, -self.v * dt * np.sin(self.xk[-1])],
+                            [0, 1, self.v * dt * np.cos(self.xk[-1])],
+                            [0, 0, 1]]) 
 
-                self.v = (left_lin_vel + right_lin_vel) / 2.0
-                self.w = (left_lin_vel - right_lin_vel) / self.wheel_base_distance
+            Wk = np.array([[dt*self.wheel_radius*np.cos(self.xk[-1])/2,   dt*self.wheel_radius*np.cos(self.xk[-1])/2],
+                            [dt*self.wheel_radius*np.sin(self.xk[-1])/2,  dt*self.wheel_radius*np.sin(self.xk[-1])/2],
+                            [dt*self.wheel_radius/self.wheel_base_distance,    -dt*self.wheel_radius/self.wheel_base_distance]])
             
-                #calculate dt
-                current_time = rospy.Time.from_sec(msg.header.stamp.secs + msg.header.stamp.nsecs * 1e-9)
-                dt = (current_time - self.last_time).to_sec()
-                self.last_time = current_time
+            F1k, F2k = self.get_F1k_F2k(Ak, Wk)
 
-                Ak = np.array([[1, 0, -self.v * dt * np.sin(self.xk[-1])],
-                                [0, 1, self.v * dt * np.cos(self.xk[-1])],
-                                [0, 0, 1]]) 
+            self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
 
-                Wk = np.array([[dt*self.wheel_radius*np.cos(self.xk[-1])/2,   dt*self.wheel_radius*np.cos(self.xk[-1])/2],
-                                [dt*self.wheel_radius*np.sin(self.xk[-1])/2,  dt*self.wheel_radius*np.sin(self.xk[-1])/2],
-                                [dt*self.wheel_radius/self.wheel_base_distance,    -dt*self.wheel_radius/self.wheel_base_distance]])
-                
-                F1k, F2k = self.get_F1k_F2k(Ak, Wk)
-
-                self.Pk = F1k @ self.Pk @ F1k.T  + F2k @ self.Qk @ F2k.T
-
-                # State updates x' = x + d * cos(theta) y' = y + d * sin(theta)
-                self.xk[-3] = self.xk[-3] + self.v * dt * np.cos(self.xk[-1])
-                self.xk[-2] = self.xk[-2] + self.v * dt * np.sin(self.xk[-1]) 
-                self.xk[-1] = self.xk[-1] + self.w * dt
-
-                self.left_wheel_received = False
-
-                #print the shape of self.xk and self.Pk
-                # print('self.xk.shape: ', self.xk.shape)
-                # print('self.Pk.shape: ', self.Pk.shape)
+            # State updates x' = x + d * cos(theta) y' = y + d * sin(theta)
+            self.xk[-3] = self.xk[-3] + self.v * dt * np.cos(self.xk[-1])
+            self.xk[-2] = self.xk[-2] + self.v * dt * np.sin(self.xk[-1]) 
+            self.xk[-1] = self.xk[-1] + self.w * dt
 
     
     def get_F1k_F2k(self, Ak, Wk):
