@@ -1,0 +1,15 @@
+<launch>
+    <!-- Node 1 -->
+    <node name="velocity_converter" pkg="pose-graph-slam" type="FK_diff_drive1.py" output="screen">
+        <!-- Add any node-specific arguments or parameters here -->
+    </node>
+
+    <!-- Node 2 -->
+    <node name="teleop_key" pkg="pose-graph-slam" type="kobuki_teleop.py" output="screen"> 
+        <!-- Add any node-specific arguments or parameters here -->
+    </node>
+
+    <!-- Topic remapping -->
+    <!-- <remap from="turtlebot/kobuki/commands/wheel_velocities" to="hardware_topic"/>  -->
+
+</launch>

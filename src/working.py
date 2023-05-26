@@ -52,7 +52,6 @@ class PoseGraphSLAM:
         self.map = []  # = [s1, s2, s3, s4]
         # Store scan as soon as it is available
         self.scan = []
-
         # Store groundtruth pose
         self.gt_pose = np.zeros(3)
         # Subscriber to groundtruth
@@ -90,7 +89,6 @@ class PoseGraphSLAM:
         self.Qk = np.array([[0.0001, 0],     
                              [0, 0.0001]])
         
-
         self.control_num = 0
         
 
@@ -110,7 +108,7 @@ class PoseGraphSLAM:
 
         # scan related variables
         self.dist_th = 0.2#05   # take scan if displacement is > 0.2m, 0.5
-        self.ang_th = 5000#0.05 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees)
+        self.ang_th = 0.1#0.05 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees)
 
         self.last_time = rospy.Time.now()
 
@@ -191,7 +189,7 @@ class PoseGraphSLAM:
         #update the covariance matrix
         self.Pk = (I - K @ Hk) @ self.Pk @ (I - K @ Hk).T
 
-        print('heading updated')
+        # print('heading updated')
         #release the mutex
         self.mutex.release()
 
@@ -241,8 +239,8 @@ class PoseGraphSLAM:
                 self.left_wheel_received = False
 
                 #print the shape of self.xk and self.Pk
-                print('self.xk.shape: ', self.xk.shape)
-                print('self.Pk.shape: ', self.Pk.shape)
+                # print('self.xk.shape: ', self.xk.shape)
+                # print('self.Pk.shape: ', self.Pk.shape)
 
     
     def get_F1k_F2k(self, Ak, Wk):
@@ -285,35 +283,24 @@ class PoseGraphSLAM:
             # at which the scan was taken
             self.scan = ScanToWorldFrame(self.xk[0:3], self.scan)
             #print the shape of scan here
-            print('scan to world shape: ', self.scan.shape)
+            # print('scan to world shape: ', self.scan.shape)
             self.map.append(self.scan)
         
-        # if check_distance_bw_scans(self.xk, self.dist_th, self.ang_th):
-        if self.control_num == 4:
+        if check_distance_bw_scans(self.xk, self.dist_th, self.ang_th):
+        # if self.control_num == 4:
             # with self.mutex:   
             if True:    
                 print('Entering Update')  
                 # add new scan
-                #TODO: convert the scans to world frame and keep a map in the world frame
-
-                #print the shape of scan here
-                # print('scan shape before: ', self.scan.shape)
-
-                #print the shape of xk here
-                # print('xk shape before: ', self.xk.shape)
-                #transform the scan to the world frame
-                # print('xk before: ', self.xk[-3:-1])
                 self.scan = ScanToWorldFrame(self.xk[-3:], self.scan)
 
-                #prin the shape of scan
-                # print('scan shape: ', self.scan.shape)
                 self.map.append(self.scan)
 
                 self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
 
                 #print the length of map and the state vector
-                print('map length: ', len(self.map))
-                print('xk length: ', len(self.xk))
+                # print('map length: ', len(self.map))
+                # print('xk length: ', len(self.xk))
                 # Store the actual viewpoint in the groundtruth state vector
                 # self.gt_xk = np.hstack((self.gt_xk, self.gt_pose))
 
@@ -322,7 +309,6 @@ class PoseGraphSLAM:
                 # Overlapping Scans
                 offset = 2
                 Ho = OverlappingScans(self.xk, self.map, offset)
-                #TODO: check overlap. and once it returns true, we update
 
                 '''For debugging purposes'''
                 # Ho = OverlappingScans(self.gt_xk, self.map)
@@ -388,42 +374,9 @@ class PoseGraphSLAM:
                     # if euclidean_distance(x, y) <= 0.3:# and angle_diff <= 0.05:  #: 
                         self.update_slam(zk,Hk, Rk, Vk, guess_displacement)
                     
-                    #TODO: check if we can accept or reject ICP results
-                    # if we accept it, use it to update the state vector
-                    
-                    # Hp.append(j)
-                    # h.append(guess_displacement)
-                    # Z_matched.append(zr)
-
-                # print("Measurements being used: ", Hp)
-                # h = sum(h, [])
-                # Z_matched = sum(Z_matched, []) # to convert z_matched from [[],[],[]] to []
-                # Zk, Rk, Hk, Vk = ObservationMatrix(Hp, self.xk, Z_matched, Rp=None) # hp = ho for now, Rp=None for now 
-
-
-
-
-                # self.xk, self.Pk = Update(self.xk, self.Pk, Zk, Rk, Hk, Vk, h)
-
-                # Clone the pose for further prediction
-                # self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
                 print('Exiting Update')
                 self.publish_viewpoints()
-                # self.publish_full_map()
-
-            # Save scan data along with groundtruth pose
-            # if len(self.map) == 20:
-            #     print('savingdata')
-            #     print('Number of gt poses: ', self.gt_xk.shape)
-            #     for i in range(len(self.map)):
-            #         filename = '/home/alamdar11/projects_ws/src/pose-graph-slam/src/saved_data/scan' + str(i) + '.txt'
-            #         np.savetxt(filename, self.map[i])
-            #     np.savetxt('/home/mawais/catkin_ws/src/src/pose-graph-slam/src/saved_data/poses.txt', self.gt_xk)
-
-            # self.update_running = False
-            
-            # self.check_obs_model()
-            # if len(self.map)%5 == 0:
+                self.publish_full_map()
 
             self.control_num = 0
 
@@ -436,7 +389,6 @@ class PoseGraphSLAM:
         self.subImu = rospy.Subscriber('/kobuki/sensors/imu', Imu, self.imu_callback)
             
 
-# ******************JOSEPH FORMULA******************
     def new_observationHk(self, scan_index, current_viewpoint, matched_viewpoint):
 
         Hk = np.zeros((3, len(self.xk)))
@@ -501,11 +453,6 @@ class PoseGraphSLAM:
         self.Pk = (np.eye(len(self.xk)) - K @ Hk) @ self.Pk @ (np.eye(len(self.xk)) - K @ Hk).T
        
         pass
-
-
-
-
-    # ******************JOSEPH FORMULA******************
 
     ##################      Publishing   ##############################
 
