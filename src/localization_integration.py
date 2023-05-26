@@ -59,17 +59,17 @@ class PoseGraphSLAM:
         # Subscriber to groundtruth
 
         # Pose initialization
-        self.xk = np.array([0, 0.5, 0.0])
+        self.xk = np.array([0, 0.0, 0.0])
                 # Edit the initial position of the robot
-        self.xk[0] = 3.0
-        self.xk[1] = -0.78
-        self.xk[2] = np.pi/2.0
+        # self.xk[0] = 3.0
+        # self.xk[1] = -0.78
+        # self.xk[2] = np.pi/2.0
 
         # Groundtruth state vector
-        self.gt_xk = np.array([0, 0.5, 0.0])
-        self.gt_xk[0] = 3.0
-        self.gt_xk[1] = -0.78
-        self.gt_xk[2] = np.pi/2.0
+        self.gt_xk = np.array([0, 0.0, 0.0])
+        # self.gt_xk[0] = 3.0
+        # self.gt_xk[1] = -0.78
+        # self.gt_xk[2] = np.pi/2.0
 
         # initial covariance matrix
         self.Pk = np.array([[0.1, 0, 0],    
@@ -77,14 +77,14 @@ class PoseGraphSLAM:
                             [0, 0, 0.1]])   
         
         # Subscriber to lidar
-        self.scan_sub = rospy.Subscriber("/kobuki/sensors/rplidar", LaserScan, self.scan_available)
+        self.scan_sub = rospy.Subscriber("turtlebot/kobuki/sensors/rplidar", LaserScan, self.scan_available)
 
         # Add new pose to keep predicting
         self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
 
         self.tf_br = TransformBroadcaster()
         # Subscriber to get joint states
-        self.js_sub = rospy.Subscriber("/kobuki/joint_states", JointState, self.predict)
+        self.js_sub = rospy.Subscriber("turtlebot/joint_states", JointState, self.predict)
         # Odometry noise covariance
         self.Qk = np.array([[0.04, 0],     
                              [0, 0.04]])
@@ -113,9 +113,9 @@ class PoseGraphSLAM:
         self.last_time = rospy.Time.now()
 
         # If using turtlebot_hoi<>.launch _________________
-        self.child_frame_id = "kobuki/base_footprint"
-        self.wheel_name_left = "kobuki/wheel_left_joint"
-        self.wheel_name_right = "kobuki/wheel_right_joint"
+        self.child_frame_id = "turtlebot/kobuki/base_footprint"
+        self.wheel_name_left = "turtlebot/kobuki/wheel_left_joint"
+        self.wheel_name_right = "turtlebot/kobuki/wheel_right_joint"
 
         # odom publisher
         self.odom_pub = rospy.Publisher("kobuki/odom", Odometry, queue_size=10)
@@ -128,7 +128,7 @@ class PoseGraphSLAM:
         
     
 
-        self.subImu = rospy.Subscriber('/kobuki/sensors/imu', Imu, self.imu_callback)
+        self.subImu = rospy.Subscriber('turtlebot/kobuki/sensors/imu', Imu, self.imu_callback)
 
     def wrap_angle(self, angle):
         """this function wraps the angle between -pi and pi
@@ -309,7 +309,7 @@ class PoseGraphSLAM:
                 # print('Ground truth state vector: ', self.gt_xk)
 
                 # Overlapping Scans
-                offset = 4
+                offset = 2
                 Ho = OverlappingScans(self.xk, self.map, offset)
 
                 '''For debugging purposes'''
@@ -387,8 +387,8 @@ class PoseGraphSLAM:
             # self.update_running = False
             self.control_num += 1
         self.mutex.release()
-        self.js_sub = rospy.Subscriber("/kobuki/joint_states", JointState, self.predict)
-        self.subImu = rospy.Subscriber('/kobuki/sensors/imu', Imu, self.imu_callback)
+        self.js_sub = rospy.Subscriber("turtlebot/joint_states", JointState, self.predict)
+        self.subImu = rospy.Subscriber('turtlebot/kobuki/sensors/imu', Imu, self.imu_callback)
             
 
     def new_observationHk(self, scan_index, current_viewpoint, matched_viewpoint):
@@ -581,7 +581,7 @@ class PoseGraphSLAM:
                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  
                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
                 self.Pk[-1,-3], self.Pk[-1,-2], 0.0, 0.0, 0.0, self.Pk[-1,-1]]
-        print("i'm here in pup odom")
+        # print("i'm here in pup odom")
         odom = Odometry()
         odom.header.stamp = current_time
         odom.header.frame_id = "world_ned"
