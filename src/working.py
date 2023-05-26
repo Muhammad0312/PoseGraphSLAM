@@ -48,6 +48,8 @@ class PoseGraphSLAM:
         self.wheel_base_distance = 0.230
         self.update_running = False
 
+        self.scans = []
+
         # Store the map
         self.map = []  # = [s1, s2, s3, s4]
         # Store scan as soon as it is available
@@ -55,8 +57,6 @@ class PoseGraphSLAM:
         # Store groundtruth pose
         self.gt_pose = np.zeros(3)
         # Subscriber to groundtruth
-        # self.gt_sub = rospy.Subscriber("/turtlebot/stonefish_simulator/ground_truth_odometry", Odometry, self.get_gt)
-        # self.gt_sub = rospy.Subscriber("/kobuki/sensors/virtual_odom_sensor", Odometry, self.get_gt)
 
         # Pose initialization
         self.xk = np.array([0, 0.5, 0.0])
@@ -281,6 +281,7 @@ class PoseGraphSLAM:
         if len(self.map) == 0:
             #TODO: convert the scan to the world frame using the robot's pose
             # at which the scan was taken
+            self.scans.append(self.scan)
             self.scan = ScanToWorldFrame(self.xk[0:3], self.scan)
             #print the shape of scan here
             # print('scan to world shape: ', self.scan.shape)
@@ -292,6 +293,7 @@ class PoseGraphSLAM:
             if True:    
                 print('Entering Update')  
                 # add new scan
+                self.scans.append(self.scan)
                 self.scan = ScanToWorldFrame(self.xk[-3:], self.scan)
 
                 self.map.append(self.scan)
@@ -307,7 +309,7 @@ class PoseGraphSLAM:
                 # print('Ground truth state vector: ', self.gt_xk)
 
                 # Overlapping Scans
-                offset = 2
+                offset = 3
                 Ho = OverlappingScans(self.xk, self.map, offset)
 
                 '''For debugging purposes'''
@@ -438,11 +440,11 @@ class PoseGraphSLAM:
 
         #compute the kalman gain
         #print the shape of everything of Hk, Pk, Rk, Vk
-        print('Hk: ', Hk.shape)
-        print('Pk: ', self.Pk.shape)
-        print('Rk: ', Rk.shape)
-        print('Vk: ', Vk.shape)
-        print('innovation: ', innovation.shape)
+        # print('Hk: ', Hk.shape)
+        # print('Pk: ', self.Pk.shape)
+        # print('Rk: ', Rk.shape)
+        # print('Vk: ', Vk.shape)
+        # print('innovation: ', innovation.shape)
 
         K = self.Pk @ Hk.T @ np.linalg.inv((Hk @ self.Pk @ Hk.T) + (Vk @ Rk @Vk.T))
 
@@ -466,7 +468,7 @@ class PoseGraphSLAM:
     def publish_full_map(self):
         # print('State vector: ',self.xk.shape)
         # print('Map: ', len(self.map))
-        full_map = scans_to_map(self.xk, self.map)
+        full_map = scans_to_map(self.xk, self.scans)
         # print('map_shape: ', full_map)
 
         # Create the header for the point cloud message

@@ -29,7 +29,6 @@ def ToWorldFrame(state_vector, map):
 
 
 def scans_to_map(state_vector, map):
-
     # map = [S1, S2, S3, S4]
     # poses = [x1, x2, x3, x4]
     

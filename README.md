@@ -26,4 +26,4 @@ or
 
 roslaunch pose-graph-slam test_kobuki_basic.launch
 rosrun pose-graph-slam working.py
-rosrun pose-graph-slam kobuki_keyboard_control1.launch
+roslaunch pose-graph-slam kobuki_keyboard_control1.launch
