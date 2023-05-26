@@ -27,3 +27,8 @@ or
 roslaunch pose-graph-slam test_kobuki_basic.launch
 rosrun pose-graph-slam working.py
 roslaunch pose-graph-slam kobuki_keyboard_control1.launch
+
+## Run on Hardware
+roslaunch pose-graph-slam test_kobuki_basic_hardware.launch
+rosrun pose-graph-slam working_hardware.py
+roslaunch pose-graph-slam kobuki_keyboard_control.launch

@@ -56,78 +56,126 @@ Visualization Manager:
     - Alpha: 1
       Class: rviz/RobotModel
       Collision Enabled: false
-      Enabled: false
+      Enabled: true
       Links:
         All Links Enabled: true
         Expand Joint Details: false
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
+        camera_accel_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera_accel_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera_bottom_screw_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera_color_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera_color_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera_depth_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera_depth_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera_gyro_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera_gyro_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera_infra1_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera_infra1_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera_infra2_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera_infra2_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        kobuki/base_footprint:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        kobuki/base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        kobuki/cliff_sensor_front_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        kobuki/cliff_sensor_left_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        kobuki/cliff_sensor_right_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        kobuki/imu:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        kobuki/plates_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        kobuki/rplidar:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        kobuki/wheel_left_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        kobuki/wheel_right_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
       Name: RobotModel
       Robot Description: robot_description
       TF Prefix: ""
       Update Interval: 0
-      Value: false
+      Value: true
       Visual Enabled: true
     - Class: rviz/TF
-      Enabled: true
+      Enabled: false
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        camera_accel_frame:
-          Value: false
-        camera_accel_optical_frame:
-          Value: false
-        camera_bottom_screw_frame:
-          Value: false
-        camera_color_frame:
-          Value: false
-        camera_color_optical_frame:
-          Value: false
-        camera_depth_frame:
-          Value: false
-        camera_depth_optical_frame:
-          Value: false
-        camera_gyro_frame:
-          Value: false
-        camera_gyro_optical_frame:
-          Value: false
-        camera_infra1_frame:
-          Value: false
-        camera_infra1_optical_frame:
-          Value: false
-        camera_infra2_frame:
-          Value: false
-        camera_infra2_optical_frame:
-          Value: false
-        camera_link:
-          Value: false
-        kobuki/base_footprint:
-          Value: true
-        kobuki/base_link:
-          Value: true
-        kobuki/cliff_sensor_front_link:
-          Value: true
-        kobuki/cliff_sensor_left_link:
-          Value: true
-        kobuki/cliff_sensor_right_link:
-          Value: true
-        kobuki/imu:
-          Value: true
-        kobuki/plates_link:
-          Value: true
-        kobuki/realsense_color:
-          Value: true
-        kobuki/realsense_depth:
-          Value: true
-        kobuki/rplidar:
-          Value: true
-        kobuki/wheel_left_link:
-          Value: true
-        kobuki/wheel_right_link:
-          Value: true
-        world_ned:
-          Value: true
       Marker Alpha: 1
       Marker Scale: 0.30000001192092896
       Name: TF
@@ -135,48 +183,9 @@ Visualization Manager:
       Show Axes: true
       Show Names: false
       Tree:
-        world_ned:
-          kobuki/base_footprint:
-            kobuki/base_link:
-              kobuki/cliff_sensor_front_link:
-                {}
-              kobuki/cliff_sensor_left_link:
-                {}
-              kobuki/cliff_sensor_right_link:
-                {}
-              kobuki/imu:
-                {}
-              kobuki/plates_link:
-                camera_bottom_screw_frame:
-                  camera_link:
-                    camera_accel_frame:
-                      camera_accel_optical_frame:
-                        {}
-                    camera_color_frame:
-                      camera_color_optical_frame:
-                        kobuki/realsense_color:
-                          {}
-                    camera_depth_frame:
-                      camera_depth_optical_frame:
-                        kobuki/realsense_depth:
-                          {}
-                    camera_gyro_frame:
-                      camera_gyro_optical_frame:
-                        {}
-                    camera_infra1_frame:
-                      camera_infra1_optical_frame:
-                        {}
-                    camera_infra2_frame:
-                      camera_infra2_optical_frame:
-                        {}
-                kobuki/rplidar:
-                  {}
-              kobuki/wheel_left_link:
-                {}
-              kobuki/wheel_right_link:
-                {}
+        {}
       Update Interval: 0
-      Value: true
+      Value: false
     - Class: rviz/Camera
       Enabled: true
       Image Rendering: background and overlay
@@ -299,7 +308,7 @@ Visualization Manager:
       Marker Topic: /slam/vis_viewpoints
       Name: MarkerArray
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
   Enabled: true

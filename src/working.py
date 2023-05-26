@@ -86,8 +86,8 @@ class PoseGraphSLAM:
         # Subscriber to get joint states
         self.js_sub = rospy.Subscriber("/kobuki/joint_states", JointState, self.predict)
         # Odometry noise covariance
-        self.Qk = np.array([[0.0001, 0],     
-                             [0, 0.0001]])
+        self.Qk = np.array([[0.04, 0],     
+                             [0, 0.04]])
         
         self.control_num = 0
         
