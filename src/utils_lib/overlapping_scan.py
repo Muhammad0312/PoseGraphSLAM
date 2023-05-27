@@ -33,9 +33,6 @@ def ToWorldFrame(state_vector, map):
 
 
 def OverlappingScans(state_vector, map,offset):
-    # convert from [x,y,z] to [[x,y,z]]
-    # state_vector = [[state_vector[i], state_vector[i+1], state_vector[i+2]] for i in range(0, len(state_vector), 3)]
-    # compounded_scans = ToWorldFrame(state_vector, map)
     H = []
 
     overlap_threshold = 80

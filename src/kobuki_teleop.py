@@ -66,8 +66,8 @@ class TeleopKey:
         
         lin_vel = 0.0
         ang_vel = 0.0
-        max_lin_vel = 0.2
-        max_ang_vel = 0.35
+        max_lin_vel = 1
+        max_ang_vel = 1
 
         try:
             print(msg)

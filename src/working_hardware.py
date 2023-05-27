@@ -64,7 +64,7 @@ class PoseGraphSLAM:
                             [0, 0, 0.1]])   
         
         # Subscriber to lidar
-        self.scan_sub = rospy.Subscriber("/turtlebot/kobuki/sensors/rplidar", LaserScan, self.scan_available)
+        # self.scan_sub = rospy.Subscriber("/turtlebot/kobuki/sensors/rplidar", LaserScan, self.scan_available)
 
         # Add new pose to keep predicting
         self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
@@ -112,10 +112,8 @@ class PoseGraphSLAM:
         self.full_map_pub = rospy.Publisher('/slam/map', PointCloud2, queue_size=10)
 
         # create a subscriber to get the scan
-        
-    
 
-        self.subImu = rospy.Subscriber('turtlebot/kobuki/sensors/imu', Imu, self.imu_callback)
+        self.subImu = rospy.Subscriber('/turtlebot/kobuki/sensors/imu_data', Imu, self.imu_callback)
 
     def wrap_angle(self, angle):
         """this function wraps the angle between -pi and pi
@@ -138,7 +136,7 @@ class PoseGraphSLAM:
         :rtype: None
         """
         # with self.mutex:t
-        self.mutex.acquire()
+        # self.mutex.acquire()
         # convert the orientation message received from quaternion to euler
         quaternion = (msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w)
 
@@ -178,7 +176,7 @@ class PoseGraphSLAM:
 
         # print('heading updated')
         #release the mutex
-        self.mutex.release()
+        # self.mutex.release()
 
         pass
     #_______________________   Predictions __________________________________________________________________
@@ -233,10 +231,10 @@ class PoseGraphSLAM:
     def predict (self,msg):
         # Use mutex to prevent different subscriber from using the same resource simultaneously
         # with self.mutex:
-        self.mutex.acquire()
+        # self.mutex.acquire()
         self.State_model(msg) 
         self.publish_odom_predict(msg)
-        self.mutex.release()
+        # self.mutex.release()
 
     #______________________    Update  ________________________________________________________________
     
@@ -245,15 +243,12 @@ class PoseGraphSLAM:
         #unsubscribe from the scan topic
         self.subImu.unregister()
         self.js_sub.unregister()
-        self.mutex.acquire()
 
         self.scan = get_scan(scan_msg)
 
         if len(self.map) == 0:
             self.scans.append(self.scan)
             self.scan = ScanToWorldFrame(self.xk[0:3], self.scan)
-            #print the shape of scan here
-            # print('scan to world shape: ', self.scan.shape)
             self.map.append(self.scan)
         
         if check_distance_bw_scans(self.xk, self.dist_th, self.ang_th):
@@ -319,9 +314,9 @@ class PoseGraphSLAM:
         else:
             self.control_num += 1
 
-        self.mutex.release()
+        # self.mutex.release()
         self.js_sub = rospy.Subscriber("/turtlebot/joint_states", JointState, self.predict)
-        self.subImu = rospy.Subscriber('/turtlebot/kobuki/sensors/imu', Imu, self.imu_callback)
+        self.subImu = rospy.Subscriber('/turtlebot/kobuki/sensors/imu_data', Imu, self.imu_callback)
             
 
     def new_observationHk(self, scan_index, current_viewpoint, matched_viewpoint):
@@ -497,7 +492,7 @@ class PoseGraphSLAM:
         odom = Odometry()
         odom.header.stamp = current_time
         odom.header.frame_id = "world_ned"
-        odom.child_frame_id = self.child_frame_id
+        odom.child_frame_id = 'turtlebot/kobuki/base_footprint'
 
         odom.pose.pose.position.x = self.xk[-3]
         odom.pose.pose.position.y = self.xk[-2]
