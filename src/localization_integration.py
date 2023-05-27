@@ -1,6 +1,7 @@
 #!/usr/bin/python3
+
 import numpy as np
-import rospy
+import rospy, math
 from nav_msgs.msg import Odometry 
 from std_msgs.msg import Float64, Float32MultiArray
 from sensor_msgs.msg import JointState, Imu
@@ -24,6 +25,8 @@ from utils_lib.Observation_Update import*
 from utils_lib.scans_to_map import scans_to_map
 
 from icp_testing.icp import ICP, ScanToWorldFrame
+
+import sys
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs.msg import LaserScan
 from sensor_msgs import point_cloud2
@@ -37,38 +40,36 @@ class PoseGraphSLAM:
     def __init__(self) -> None:
         # Suppress scientific notations while displaying numbers
         np.set_printoptions(suppress=True)
+        self.previous = time.time()
 
         self.mutex = threading.Lock()
-
         # robot constants
         self.wheel_radius = 0.035
         self.wheel_base_distance = 0.230
+        self.update_running = False
 
-        # Store the scans in the robot's frame
         self.scans = []
 
-        # Store the scans in the world frame using the predicted pose
+        # Store the map
         self.map = []  # = [s1, s2, s3, s4]
-
         # Store scan as soon as it is available
         self.scan = []
-
         # Store groundtruth pose
         self.gt_pose = np.zeros(3)
         # Subscriber to groundtruth
 
         # Pose initialization
-        self.xk = np.array([0, 0.5, 0.0])
-        # Edit the initial position of the robot
-        self.xk[0] = 3.0
-        self.xk[1] = -0.78
-        self.xk[2] = np.pi/2.0
+        self.xk = np.array([0, 0.0, 0.0])
+                # Edit the initial position of the robot
+        # self.xk[0] = 3.0
+        # self.xk[1] = -0.78
+        # self.xk[2] = np.pi/2.0
 
         # Groundtruth state vector
-        self.gt_xk = np.array([0, 0.5, 0.0])
-        self.gt_xk[0] = 3.0
-        self.gt_xk[1] = -0.78
-        self.gt_xk[2] = np.pi/2.0
+        self.gt_xk = np.array([0, 0.0, 0.0])
+        # self.gt_xk[0] = 3.0
+        # self.gt_xk[1] = -0.78
+        # self.gt_xk[2] = np.pi/2.0
 
         # initial covariance matrix
         self.Pk = np.array([[0.1, 0, 0],    
@@ -76,14 +77,14 @@ class PoseGraphSLAM:
                             [0, 0, 0.1]])   
         
         # Subscriber to lidar
-        self.scan_sub = rospy.Subscriber("/kobuki/sensors/rplidar", LaserScan, self.scan_available)
+        self.scan_sub = rospy.Subscriber("turtlebot/kobuki/sensors/rplidar", LaserScan, self.scan_available)
 
         # Add new pose to keep predicting
         self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
 
         self.tf_br = TransformBroadcaster()
         # Subscriber to get joint states
-        self.js_sub = rospy.Subscriber("/kobuki/joint_states", JointState, self.predict)
+        self.js_sub = rospy.Subscriber("turtlebot/joint_states", JointState, self.predict)
         # Odometry noise covariance
         self.Qk = np.array([[0.04, 0],     
                              [0, 0.04]])
@@ -97,6 +98,8 @@ class PoseGraphSLAM:
         self.compass_Rk = np.diag([0.157]) 
 
         # prediction related variables
+        self.lin_vel = 0.0
+        self.ang_vel = 0.0
         self.v=0.0
         self.w=0.0
         self.left_wheel_velocity = 0.0
@@ -104,15 +107,15 @@ class PoseGraphSLAM:
         self.left_wheel_received = False
 
         # scan related variables
-        self.dist_th = 0.2 #0.5   # take scan if displacement is > 0.2m, 0.5
-        self.ang_th = 0.1 #0.05 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees)
+        self.dist_th = 0.2#05   # take scan if displacement is > 0.2m, 0.5
+        self.ang_th = 0.1#0.05 # take scan if angle change is > 0.175(10 degrees), 0.785 (45 degrees)
 
         self.last_time = rospy.Time.now()
 
         # If using turtlebot_hoi<>.launch _________________
-        self.child_frame_id = "kobuki/base_footprint"
-        self.wheel_name_left = "kobuki/wheel_left_joint"
-        self.wheel_name_right = "kobuki/wheel_right_joint"
+        self.child_frame_id = "turtlebot/kobuki/base_footprint"
+        self.wheel_name_left = "turtlebot/kobuki/wheel_left_joint"
+        self.wheel_name_right = "turtlebot/kobuki/wheel_right_joint"
 
         # odom publisher
         self.odom_pub = rospy.Publisher("kobuki/odom", Odometry, queue_size=10)
@@ -121,8 +124,11 @@ class PoseGraphSLAM:
         self.viewpoints_pub = rospy.Publisher("/slam/vis_viewpoints",MarkerArray,queue_size=1)
         self.full_map_pub = rospy.Publisher('/slam/map', PointCloud2, queue_size=10)
 
-        # Subscriber for imu data
-        self.subImu = rospy.Subscriber('/kobuki/sensors/imu', Imu, self.imu_callback)
+        # create a subscriber to get the scan
+        
+    
+
+        self.subImu = rospy.Subscriber('turtlebot/kobuki/sensors/imu', Imu, self.imu_callback)
 
     def wrap_angle(self, angle):
         """this function wraps the angle between -pi and pi
@@ -134,7 +140,60 @@ class PoseGraphSLAM:
         :rtype: float
         """
         return (angle + ( 2.0 * np.pi * np.floor( ( np.pi - angle ) / ( 2.0 * np.pi ) ) ) )
-    
+
+    def imu_callback(self, msg):
+        """ imu_callback is a callback function that is called when a new IMU message comes in
+
+        :param msg: the IMU message
+        :type msg: Imu
+
+        :return: None
+        :rtype: None
+        """
+        # with self.mutex:t
+        self.mutex.acquire()
+        # convert the orientation message received from quaternion to euler
+        quaternion = (msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w)
+
+        # convert the orientation message received from quaternion to euler
+        _, _ , yaw_measurement = euler_from_quaternion(quaternion)
+
+        #create a row vector of zeros of size 1 x 3*num_poses
+        Hk = np.zeros((1, len(self.xk)))
+
+        #replace the last element of the row vector with 1
+        Hk[0, -1] = 1
+
+        #multiply the row vector with the state vector to get the observation
+        # predicted_compass_meas = Hk @ self.xk + self.compass_Vk
+
+        predicted_compass_meas = self.xk[-1]
+
+        #compute the kalman gain
+        K = self.Pk @ Hk.T @ np.linalg.inv((Hk @ self.Pk @ Hk.T) + (self.compass_Vk @ self.compass_Rk @ self.compass_Vk.T))
+
+        #compute the innovation
+        innovation = self.wrap_angle(yaw_measurement - predicted_compass_meas)
+
+        x = np.dot(K, innovation)
+
+        #  reshape x to (n,)
+        x = x.reshape(-1)
+
+        # update the state vector
+        self.xk = self.xk + x
+
+        #create the identity matrix        
+        I = np.eye(len(self.xk))
+
+        #update the covariance matrix
+        self.Pk = (I - K @ Hk) @ self.Pk @ (I - K @ Hk).T
+
+        # print('heading updated')
+        #release the mutex
+        self.mutex.release()
+
+        pass
     #_______________________   Predictions __________________________________________________________________
 
     def State_model (self,msg):
@@ -178,6 +237,11 @@ class PoseGraphSLAM:
                 self.xk[-1] = self.xk[-1] + self.w * dt
 
                 self.left_wheel_received = False
+
+                #print the shape of self.xk and self.Pk
+                # print('self.xk.shape: ', self.xk.shape)
+                # print('self.Pk.shape: ', self.Pk.shape)
+
     
     def get_F1k_F2k(self, Ak, Wk):
         F1k = np.zeros((len(self.xk),len(self.xk)))
@@ -192,162 +256,145 @@ class PoseGraphSLAM:
 
     def predict (self,msg):
         # Use mutex to prevent different subscriber from using the same resource simultaneously
+        # with self.mutex:
         self.mutex.acquire()
         self.State_model(msg) 
         self.publish_odom_predict(msg)
         self.mutex.release()
 
     #______________________    Update  ________________________________________________________________
-
-    def imu_callback(self, msg):
-        """ imu_callback is a callback function that is called when a new IMU message comes in
-
-        :param msg: the IMU message
-        :type msg: Imu
-
-        :return: None
-        :rtype: None
-        """
-        # with self.mutex
-        self.mutex.acquire()
-
-        # convert the orientation message received from quaternion to euler
-        quaternion = (msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w)
-
-        # convert the orientation message received from quaternion to euler
-        _, _ , yaw_measurement = euler_from_quaternion(quaternion)
-
-        self.update_heading(yaw_measurement)
-
-        #release the mutex
-        self.mutex.release()
-
-    def update_heading(self, yaw_measurement):
-        # Create a row vector of zeros of size 1 x 3*num_poses
-        Hk = np.zeros((1, len(self.xk)))
-
-        # Replace the last element of the row vector with 1
-        Hk[0, -1] = 1
-
-        predicted_compass_meas = self.xk[-1]
-
-        # Compute the kalman gain
-        K = self.Pk @ Hk.T @ np.linalg.inv((Hk @ self.Pk @ Hk.T) + (self.compass_Vk @ self.compass_Rk @ self.compass_Vk.T))
-
-        # Compute the innovation
-        innovation = self.wrap_angle(yaw_measurement - predicted_compass_meas)
-
-        x = np.dot(K, innovation)
-
-        # Reshape x to (n,)
-        x = x.reshape(-1)
-
-        # Update the state vector
-        self.xk = self.xk + x
-
-        # Create the identity matrix        
-        I = np.eye(len(self.xk))
-
-        # Update the covariance matrix
-        self.Pk = (I - K @ Hk) @ self.Pk @ (I - K @ Hk).T
     
+
     def scan_available(self,scan_msg):
 
-        # Unsubscribe from the joint_state topic and imu topic
+
+        #unsubscribe from the scan topic
         self.subImu.unregister()
         self.js_sub.unregister()
         self.mutex.acquire()
 
         self.scan = get_scan(scan_msg)
 
+        #print the shape from self.scan
+        # print('scan shape from get scan: ', self.scan.shape)
+
         if len(self.map) == 0:
-            # Store the first scan at the robot's first position
-            # Store the scan in the robot frame
+            #TODO: convert the scan to the world frame using the robot's pose
+            # at which the scan was taken
             self.scans.append(self.scan)
-
-            # Store the scan in the world frame
             self.scan = ScanToWorldFrame(self.xk[0:3], self.scan)
+            #print the shape of scan here
+            # print('scan to world shape: ', self.scan.shape)
             self.map.append(self.scan)
         
-        if check_distance_bw_scans(self.xk, self.dist_th, self.ang_th):  
-            print('Entering Update')  
+        if check_distance_bw_scans(self.xk, self.dist_th, self.ang_th):
+        # if self.control_num == 4:
+            # with self.mutex:   
+            if True:    
+                print('Entering Update')  
+                # add new scan
+                self.scans.append(self.scan)
+                self.scan = ScanToWorldFrame(self.xk[-3:], self.scan)
 
-            # Save new scan in the robot frame
-            self.scans.append(self.scan)
+                self.map.append(self.scan)
 
-            # Save new scan in the world frame
-            self.scan = ScanToWorldFrame(self.xk[-3:], self.scan)
-            self.map.append(self.scan)
-            
-            # Add new pose to keep predicting
-            self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
+                self.xk, self.Pk = AddNewPose(self.xk, self.Pk)
 
-            # Store the actual viewpoint in the groundtruth state vector
-            # self.gt_xk = np.hstack((self.gt_xk, self.gt_pose))
+                #print the length of map and the state vector
+                # print('map length: ', len(self.map))
+                # print('xk length: ', len(self.xk))
+                # Store the actual viewpoint in the groundtruth state vector
+                # self.gt_xk = np.hstack((self.gt_xk, self.gt_pose))
 
-            # Overlapping Scans
-            offset = 3
-            Ho = OverlappingScans(self.xk, self.map, offset)
-            print('Overlap Ho: ', Ho)
-            
-            # for each matched pair
-            for j in Ho:
+                # print('Ground truth state vector: ', self.gt_xk)
+
+                # Overlapping Scans
+                offset = 2
+                Ho = OverlappingScans(self.xk, self.map, offset)
+
+                '''For debugging purposes'''
+                # Ho = OverlappingScans(self.gt_xk, self.map)
+                print('Overlap Ho: ', Ho)
+
+                # Z_matched=[]
+                # h=[]
+                # Hp = []
                 
-                # Get the scan which overlaps with the lastest scan
-                match_scan = self.map[j]
+                # for each matched pair
+                for j in Ho:
+                    # print('------------- matching started ---------')
+                    # print('scan index: ', j)
+                    match_scan = self.map[j]
+                    
+                    curr_viewpoint = self.xk[-3:]
+                    matched_viewpoint = self.xk[j*3: 3*j+3]
 
-                # Get the viewpoint for the latest scan
-                curr_viewpoint = self.xk[-3:]
+                    # curr_viewpoint_gt = self.gt_xk[-3: ]
+                    # matched_viewpoint_gt = self.gt_xk[j*3: 3*j+3]
 
-                # Get the viewpoint for the matched scan
-                matched_viewpoint = self.xk[j*3: 3*j+3]
+                    # Obervation Model
+                    guess_displacement = get_h(curr_viewpoint, matched_viewpoint)
+                    # actual_displacement = get_h(curr_viewpoint_gt, matched_viewpoint_gt)
 
-                # curr_viewpoint_gt = self.gt_xk[-3: ]
-                # matched_viewpoint_gt = self.gt_xk[j*3: 3*j+3]
+                    # if offset == 2:
+                    zk = ICP(match_scan, self.map[-1], guess_displacement)
+                    # else:
+                    #     zr, Rr = icp(match_scan, self.map[-1], matched_viewpoint, curr_viewpoint, guess_displacement)
 
-                # Obervation Model
-                guess_displacement = get_h(curr_viewpoint, matched_viewpoint)
+                        #call new_observationHk
+                    Hk = self.new_observationHk(j, curr_viewpoint, matched_viewpoint)
 
-                # actual_displacement = get_h(curr_viewpoint_gt, matched_viewpoint_gt)
+                    Rk = np.eye(3) * 0.2
+                    Vk = np.eye(3) 
 
-                # Get the transformation between two scans using ICP
-                zk = ICP(match_scan, self.map[-1], guess_displacement)
 
-                #call new_observationHk
-                Hk = self.new_observationHk(j, curr_viewpoint, matched_viewpoint)
+                    #call the update function
+                    # self.update_slam(zk,Hk, Rk, Vk, guess_displacement)
 
-                Rk = np.eye(3) * 0.2
-                Vk = np.eye(3) 
+                    innovation = zk - guess_displacement
+                    
+                    # print('===================================================')
+                    # print('Ground truth state vector: ', self.gt_xk)
+                    # print('State vector: ', self.xk)
+                    # print('Actual displacement: ', np.round(actual_displacement, 6))
+                    # print('Expected result:     ', np.round(guess_displacement, 6))
+                    # print('ICP:                 ', np.round(zr, 6))
+                    
+                    # Check if observation is close to the expected observation
+                    # # angle_diff = abs(guess_displacement[-1] - zr[-1])
+                    # x = [guess_displacement[0], guess_displacement[1]]
+                    # y = [zk[0], zk[1]]
 
-                innovation = zk - guess_displacement
-                
+                    S = (Hk @ self.Pk @ Hk.T) + (Vk @ Rk @ Vk.T)
 
-                S = (Hk @ self.Pk @ Hk.T) + (Vk @ Rk @ Vk.T)
+                    # compute the mahalanobis distance D
+                    D = innovation.T @ np.linalg.inv(S) @ innovation
 
-                # compute the mahalanobis distance D
-                D = innovation.T @ np.linalg.inv(S) @ innovation
+                    #check if the mahalanobis distance is within the threshold
+                    if np.sqrt(D) <= 0.3:
+                    # print('Difference: ', euclidean_distance(x, y))
+                    # if euclidean_distance(x, y) <= 0.3:# and angle_diff <= 0.05:  #: 
+                        self.update_slam(zk,Hk, Rk, Vk, guess_displacement)
+                    
+                print('Exiting Update')
+                self.publish_viewpoints()
+                self.publish_full_map()
 
-                #check if the mahalanobis distance is within the threshold
-                if np.sqrt(D) <= 0.3:
-                    self.update_slam(zk,Hk, Rk, Vk, guess_displacement)
-                
-            print('Exiting Update')
-            # Publish the viewpoints for the gathered scans
-            self.publish_viewpoints()
+            self.control_num = 0
 
-            # Publish all the scans using the updated state vector
-            self.publish_full_map()
-        
+        else:
+            # print('No new scan data received')
+            # self.update_running = False
+            self.control_num += 1
         self.mutex.release()
-
-        # Subscribe to the joint_state topic and imu topic
-        self.js_sub = rospy.Subscriber("/kobuki/joint_states", JointState, self.predict)
-        self.subImu = rospy.Subscriber('/kobuki/sensors/imu', Imu, self.imu_callback)
+        self.js_sub = rospy.Subscriber("turtlebot/joint_states", JointState, self.predict)
+        self.subImu = rospy.Subscriber('turtlebot/kobuki/sensors/imu', Imu, self.imu_callback)
             
 
     def new_observationHk(self, scan_index, current_viewpoint, matched_viewpoint):
 
         Hk = np.zeros((3, len(self.xk)))
+
 
         j2_plus = np.array([[np.cos(current_viewpoint[-1]), np.sin(current_viewpoint[-1]), 0], 
                                     [-np.sin(current_viewpoint[-1]), np.cos(current_viewpoint[-1]), 0],                            
@@ -371,7 +418,7 @@ class PoseGraphSLAM:
 
 
     def update_slam(self, zk, Hk, Rk, Vk, displacement_guess):
-        """ This is the update step of the EKF SLAM algorithm
+        """ this is the update step of the EKF SLAM algorithm
 
         :param zk: the observation vector
         :type zk: numpy array
@@ -387,8 +434,17 @@ class PoseGraphSLAM:
         :return: None
 
         """
+        
 
         innovation = zk - displacement_guess
+
+        #compute the kalman gain
+        #print the shape of everything of Hk, Pk, Rk, Vk
+        # print('Hk: ', Hk.shape)
+        # print('Pk: ', self.Pk.shape)
+        # print('Rk: ', Rk.shape)
+        # print('Vk: ', Vk.shape)
+        # print('innovation: ', innovation.shape)
 
         K = self.Pk @ Hk.T @ np.linalg.inv((Hk @ self.Pk @ Hk.T) + (Vk @ Rk @Vk.T))
 
@@ -397,17 +453,23 @@ class PoseGraphSLAM:
 
         #update the covariance matrix
         self.Pk = (np.eye(len(self.xk)) - K @ Hk) @ self.Pk @ (np.eye(len(self.xk)) - K @ Hk).T
-
-    def get_gt(self, msg):
-        euler = euler_from_quaternion([msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])
-        self.gt_pose[0] = msg.pose.pose.position.x
-        self.gt_pose[1] = msg.pose.pose.position.y
-        self.gt_pose[2] = euler[-1]
+       
+        pass
 
     ##################      Publishing   ##############################
 
+    # def get_gt(self, msg):
+    #     euler = euler_from_quaternion([msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])
+    #     self.gt_pose[0] = msg.pose.pose.position.x
+    #     self.gt_pose[1] = msg.pose.pose.position.y
+    #     self.gt_pose[2] = euler[-1]
+
+
     def publish_full_map(self):
+        # print('State vector: ',self.xk.shape)
+        # print('Map: ', len(self.map))
         full_map = scans_to_map(self.xk, self.scans)
+        # print('map_shape: ', full_map)
 
         # Create the header for the point cloud message
         header = rospy.Header()
@@ -419,6 +481,59 @@ class PoseGraphSLAM:
 
         self.full_map_pub.publish(point_cloud_msg)
 
+    def check_obs_model(self):
+        ref_list = []
+        h_list = []
+
+        for i in range(0,len(self.xk)-3,3):
+            ref_pose = self.xk[i:i+3]
+            next_pose = self.xk[i+3:i+6]
+            # x, y, theta
+            h = get_h(ref_pose, next_pose)
+
+            ref_list.append(ref_pose)
+            h_list.append(h)
+        
+        # self.publish_h_lines(ref_list, h_list)
+
+    def publish_h_lines(self, ref_list, h_list):
+
+        viewpoints_list = []
+
+        # Loop through the data and create markers
+        for i in range(len(ref_list)-1):
+            # Create a marker for each line segment
+            myMarker = Marker()
+            myMarker.header.frame_id = "world_ned"
+            myMarker.type = myMarker.LINE_LIST
+            myMarker.action = myMarker.ADD
+            myMarker.id = i 
+
+            # Set the marker properties
+            myMarker.pose.orientation.w = 1.0
+            myMarker.scale.x = 0.05
+
+            # Set the line segment endpoints
+            startPoint = Point()
+            endPoint = Point()
+
+            startPoint.x = ref_list[i][0]
+            startPoint.y = ref_list[i][1]
+            startPoint.z = 0.0
+
+            endPoint.x = ref_list[i][0] + h_list[i][0]
+            endPoint.y = ref_list[i][1] + h_list[i][1]
+            endPoint.z = 0.0
+
+            myMarker.points.append(startPoint)
+            myMarker.points.append(endPoint)
+
+            myMarker.color = ColorRGBA(1, 1, 0, 1)  # Green color
+
+            viewpoints_list.append(myMarker)
+
+        self.h_lines_pub.publish(viewpoints_list)
+
     def publish_viewpoints(self):
 
         marker_frontier_lines = MarkerArray()
@@ -429,7 +544,7 @@ class PoseGraphSLAM:
         for i in range(0,len(self.xk),3):
             myMarker = Marker()
             myMarker.header.frame_id = "world_ned"
-            myMarker.type = myMarker.SPHERE
+            myMarker.type = myMarker.SPHERE # sphere
             myMarker.action = myMarker.ADD
             myMarker.id = i
 
@@ -445,10 +560,12 @@ class PoseGraphSLAM:
             myMarker.pose.position = myPoint
             
             myMarker.color=ColorRGBA(0.224, 1, 0, 1)
+                        # self.myMarker.color=ColorRGBA(colors[i*col_jump,0], colors[val*col_jump,1], colors[val*col_jump,2], 0.5)
 
             myMarker.scale.x = 0.1
             myMarker.scale.y = 0.1
             myMarker.scale.z = 0.05
+            # self.myMarker.lifetime = rospy.Duration(0)
             viewpoints_list.append(myMarker)
 
         self.viewpoints_pub.publish(viewpoints_list)
@@ -464,7 +581,7 @@ class PoseGraphSLAM:
                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  
                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
                 self.Pk[-1,-3], self.Pk[-1,-2], 0.0, 0.0, 0.0, self.Pk[-1,-1]]
-        print("i'm here in pup odom")
+        # print("i'm here in pup odom")
         odom = Odometry()
         odom.header.stamp = current_time
         odom.header.frame_id = "world_ned"
@@ -485,6 +602,9 @@ class PoseGraphSLAM:
         self.odom_pub.publish(odom)
 
         self.tf_br.sendTransform((self.xk[-3], self.xk[-2], 0.0), q, rospy.Time.now(), odom.child_frame_id, odom.header.frame_id)
+
+
+    #______________________________________________________________________-##########################################
 
 if __name__ == '__main__':
 
