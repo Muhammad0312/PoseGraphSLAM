@@ -122,7 +122,7 @@ class PoseGraphSLAM:
         self.full_map_pub = rospy.Publisher('/slam/map', PointCloud2, queue_size=10)
 
         # Subscriber for imu data
-        self.subImu = rospy.Subscriber('/kobuki/sensors/imu', Imu, self.imu_callback)
+        self.subImu = rospy.Subscriber('/kobuki/sensors/imu', Imu, self.imu_callback)  
 
     def wrap_angle(self, angle):
         """this function wraps the angle between -pi and pi
@@ -464,7 +464,6 @@ class PoseGraphSLAM:
                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  
                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
                 self.Pk[-1,-3], self.Pk[-1,-2], 0.0, 0.0, 0.0, self.Pk[-1,-1]]
-        print("i'm here in pup odom")
         odom = Odometry()
         odom.header.stamp = current_time
         odom.header.frame_id = "world_ned"

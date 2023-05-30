@@ -1,8 +1,8 @@
 <launch>
-    <param name="~frame_id" type="string" value="world_ned" />
+    <!-- <param name="~frame_id" type="string" value="world_ned" /> -->
 
     <!-- Configurable arguments -->
-    <arg name="robot_name" default="kobuki"/>
+    <arg name="robot_name" default="turtlebot"/>
     <arg name="simulation_data" default="$(find turtlebot_simulation)/resources"/>
     <arg name="scenario_description" default="$(find turtlebot_simulation)/scenarios/test_kobuki_basic.scn"/>
     <!-- <arg name="scenario_description" default="$(find turtlebot_simulation)/scenarios/aruco_circuit.scn"/> -->

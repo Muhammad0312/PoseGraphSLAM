@@ -42,7 +42,7 @@ class PoseGraphSLAM:
         np.set_printoptions(suppress=True)
         self.previous = time.time()
 
-        self.mutex = threading.Lock()
+        # self.mutex = threading.Lock()
         # robot constants
         self.wheel_radius = 0.035
         self.wheel_base_distance = 0.230
@@ -101,7 +101,7 @@ class PoseGraphSLAM:
 
         # If using turtlebot_hoi<>.launch _________________
         self.child_frame_id = "/turtlebot/kobuki/base_footprint"
-        self.wheel_name_left = "/turtlebot/kobuki/wheel_left_joint"
+        self.wheel_name_left = "turtlebot/kobuki/wheel_left_joint"
         self.wheel_name_right = "/turtlebot/kobuki/wheel_right_joint"
 
         # odom publisher
@@ -113,7 +113,7 @@ class PoseGraphSLAM:
 
         # create a subscriber to get the scan
 
-        self.subImu = rospy.Subscriber('/turtlebot/kobuki/sensors/imu_data', Imu, self.imu_callback)
+        # self.subImu = rospy.Subscriber('/turtlebot/kobuki/sensors/imu_data', Imu, self.imu_callback)
 
     def wrap_angle(self, angle):
         """this function wraps the angle between -pi and pi
@@ -175,14 +175,13 @@ class PoseGraphSLAM:
         self.Pk = (I - K @ Hk) @ self.Pk @ (I - K @ Hk).T
 
         # print('heading updated')
-        #release the mutex
+        # release the mutex
         # self.mutex.release()
 
         pass
     #_______________________   Predictions __________________________________________________________________
 
     def State_model (self,msg):
-
         if msg.name[0] == self.wheel_name_left:
             self.left_wheel_velocity = msg.velocity[0]
             self.right_wheel_velocity = msg.velocity[1]
@@ -241,8 +240,8 @@ class PoseGraphSLAM:
 
     def scan_available(self,scan_msg):
         #unsubscribe from the scan topic
-        self.subImu.unregister()
-        self.js_sub.unregister()
+        # self.subImu.unregister()
+        # self.js_sub.unregister()
 
         self.scan = get_scan(scan_msg)
 
@@ -315,8 +314,8 @@ class PoseGraphSLAM:
             self.control_num += 1
 
         # self.mutex.release()
-        self.js_sub = rospy.Subscriber("/turtlebot/joint_states", JointState, self.predict)
-        self.subImu = rospy.Subscriber('/turtlebot/kobuki/sensors/imu_data', Imu, self.imu_callback)
+        # self.js_sub = rospy.Subscriber("/turtlebot/joint_states", JointState, self.predict)
+        # self.subImu = rospy.Subscriber('/turtlebot/kobuki/sensors/imu_data', Imu, self.imu_callback)
             
 
     def new_observationHk(self, scan_index, current_viewpoint, matched_viewpoint):
@@ -492,7 +491,7 @@ class PoseGraphSLAM:
         odom = Odometry()
         odom.header.stamp = current_time
         odom.header.frame_id = "world_ned"
-        odom.child_frame_id = 'turtlebot/kobuki/base_footprint'
+        odom.child_frame_id = "turtlebot/kobuki/base_footprint"
 
         odom.pose.pose.position.x = self.xk[-3]
         odom.pose.pose.position.y = self.xk[-2]
