@@ -328,10 +328,10 @@ class PoseGraphSLAM:
                 D = innovation.T @ np.linalg.inv(S) @ innovation
 
                 #check if the mahalanobis distance is within the threshold
-                if np.sqrt(D) <= 0.3:
+                if np.sqrt(D) <= 0.8:
+                    print('updated')
                     self.update_slam(zk,Hk, Rk, Vk, guess_displacement)
                 
-            print('Exiting Update')
             # Publish the viewpoints for the gathered scans
             self.publish_viewpoints()
 
@@ -361,7 +361,7 @@ class PoseGraphSLAM:
         Hk[:, -3:] = j1_jominus
 
         #replace columns [:,-6:-3] with j1_jominus#
-        Hk[:, -6:-3] = j2_plus
+        Hk[:, -6:-3] = j1_jominus
 
         #replace the columns [:, 3*scan_index: 3*scan_index+3] with j2_plus
         Hk[:, 3*scan_index: 3*scan_index+3] = j2_plus
