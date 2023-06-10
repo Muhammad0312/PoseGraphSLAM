@@ -71,9 +71,9 @@ class PoseGraphSLAM:
         self.gt_xk[2] = np.pi/2.0
 
         # initial covariance matrix
-        self.Pk = np.array([[0.1, 0, 0],    
-                            [0, 0.1, 0],
-                            [0, 0, 0.1]])   
+        self.Pk = np.array([[0.0, 0, 0],    
+                            [0, 0.0, 0],
+                            [0, 0, 0.0]])   
         
         # Subscriber to lidar
         self.scan_sub = rospy.Subscriber("/kobuki/sensors/rplidar", LaserScan, self.scan_available)
@@ -361,7 +361,7 @@ class PoseGraphSLAM:
         Hk[:, -3:] = j1_jominus
 
         #replace columns [:,-6:-3] with j1_jominus#
-        Hk[:, -6:-3] = j1_jominus
+        # Hk[:, -6:-3] = j1_jominus
 
         #replace the columns [:, 3*scan_index: 3*scan_index+3] with j2_plus
         Hk[:, 3*scan_index: 3*scan_index+3] = j2_plus
