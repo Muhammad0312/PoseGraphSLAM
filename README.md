@@ -9,10 +9,9 @@ last update:
 
 
 ## How to Run
-
-roslaunch pose-graph-slam test_kobuki_basic.launch
-rosrun pose-graph-slam working.py
-roslaunch pose-graph-slam kobuki_keyboard_control1.launch
+1. roslaunch pose-graph-slam test_kobuki_basic.launch
+2. rosrun pose-graph-slam working.py
+3. roslaunch pose-graph-slam kobuki_keyboard_control1.launch
 
 ## HOW TO RUN:
 
