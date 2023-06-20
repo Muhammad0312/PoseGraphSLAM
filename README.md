@@ -7,6 +7,13 @@ pip install scipy
 
 last update:
 
+
+## How to Run
+
+roslaunch pose-graph-slam test_kobuki_basic.launch
+rosrun pose-graph-slam working.py
+roslaunch pose-graph-slam kobuki_keyboard_control1.launch
+
 ## HOW TO RUN:
 
 **launch sim**
