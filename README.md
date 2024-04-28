@@ -40,6 +40,12 @@ Scan alignment using ICP
 
 SLAM
 
+![SLAM](media/localization.gif)
+
+For an extended video click
+
+[SLAM](media/pose-graph-slam_cropped_edited.mp4)
+
 <video width="640" height="480" controls>
   <source src="media/pose-graph-slam_cropped_edited.mp4" type="video/mp4">
 </video>
